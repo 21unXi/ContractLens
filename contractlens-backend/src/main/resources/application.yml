@@ -1,0 +1,63 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: contractlens-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/contractlens?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+jwt:
+  secret: 7d09bf36d41fe3d85c5f638e2c420da7d78f7799
+  expiration: 86400000  # 24 hours
+
+# AI Configuration
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: sk-272eabddab6c4adcb0d067d5d15c6c6e
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      model-name: qwen-plus
+      log-requests: true
+      log-responses: true
+    embedding-model:
+      api-key: sk-272eabddab6c4adcb0d067d5d15c6c6e
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      model-name: text-embedding-v3
+  chroma:
+    embedding-store:
+      url: http://localhost:8000
+      collection-name: rental_contract_knowledge
+
+# Neo4j Graph Database Configuration
+neo4j:
+  uri: bolt://localhost:7687
+  username: neo4j
+  password: your_neo4j_password
+
+# File Upload Configuration
+upload:
+  path: ./uploads
+  allowed-types: txt,docx,pdf
+
+contractlens:
+  rag:
+    probe-query: "租房合同 押金 违约金"
+    retriever:
+      top-k: 5
+      min-score: 0.6
+    graph:
+      enabled: true
+      top-n: 10
+      content-snippet-len: 200

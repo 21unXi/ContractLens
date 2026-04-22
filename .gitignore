@@ -1,0 +1,43 @@
+# 忽略敏感配置
+application-local.yml
+application-*.yml
+!application-example.yml
+
+# 后端
+contractlens-backend/target/
+contractlens-backend/.mvn/
+contractlens-backend/mvnw
+contractlens-backend/mvnw.cmd
+
+# 前端
+contractlens-frontend/node_modules/
+contractlens-backend/dist/
+contractlens-frontend/.vite/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# 日志
+logs/
+*.log
+
+# 上传文件（开发阶段）
+uploads/
+
+# 知识库索引文件
+*.index
+*.vector
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+node_modules
