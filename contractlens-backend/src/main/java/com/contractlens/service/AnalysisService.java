@@ -3,10 +3,14 @@ package com.contractlens.service;
 import com.contractlens.dto.AnalysisResultPayload;
 import com.contractlens.entity.AnalysisResult;
 import com.contractlens.entity.Contract;
+import com.contractlens.rag.RagMode;
+import com.contractlens.rag.RagProperties;
 import com.contractlens.repository.AnalysisResultRepository;
 import com.contractlens.repository.ContractRepository;
 import com.contractlens.service.ai.AiContractAnalyst;
 import com.contractlens.service.graph.GraphContextService;
+import com.contractlens.service.lightrag.LightRagClient;
+import com.contractlens.service.lightrag.LightRagQueryResult;
 import com.contractlens.util.JsonSanitizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -55,6 +59,12 @@ public class AnalysisService {
 
     @Autowired
     private GraphContextService graphContextService;
+
+    @Autowired
+    private RagProperties ragProperties;
+
+    @Autowired
+    private LightRagClient lightRagClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService streamExecutor = Executors.newFixedThreadPool(4);
@@ -125,7 +135,7 @@ public class AnalysisService {
         if (!forceRefresh
                 && latestResult != null
                 && StringUtils.hasText(latestResult.getRetrievedContext())
-                && StringUtils.hasText(latestResult.getGraphContext())) {
+                && latestResult.getGraphContext() != null) {
             sendStatus(emitter, contract.getId(), "context_ready", "已复用最近一次检索上下文");
             return new RetrievalBundle(latestResult.getRetrievedContext(), latestResult.getGraphContext());
         }
@@ -142,6 +152,18 @@ public class AnalysisService {
     }
 
     private RetrievalBundle retrieveContext(String contractContent) {
+        if (ragProperties.getMode() == RagMode.LIGHTRAG) {
+            LightRagQueryResult result = lightRagClient.query(contractContent);
+            if (result.ok()) {
+                String graphContext = "（LightRAG：未提供 Neo4j 图谱上下文）";
+                return new RetrievalBundle(result.context(), graphContext);
+            }
+            if (!ragProperties.isFallbackToLegacy()) {
+                String error = result.error() != null ? result.error() : "LightRAG query failed";
+                throw new IllegalStateException(error);
+            }
+            log.warn("LightRAG query failed, fallback to legacy retriever, error={}", result.error());
+        }
         List<TextSegment> relevantSegments = retriever.findRelevant(contractContent);
         String retrievedContext = relevantSegments.stream()
                 .map(TextSegment::text)

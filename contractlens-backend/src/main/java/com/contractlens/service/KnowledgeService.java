@@ -1,7 +1,11 @@
 package com.contractlens.service;
 
 import com.contractlens.entity.KnowledgeDoc;
+import com.contractlens.rag.RagMode;
+import com.contractlens.rag.RagProperties;
 import com.contractlens.repository.KnowledgeDocRepository;
+import com.contractlens.service.lightrag.LightRagIngestResult;
+import com.contractlens.service.lightrag.LightRagIngestService;
 import com.contractlens.service.graph.GraphSchemaService;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
@@ -54,19 +58,25 @@ public class KnowledgeService {
     private final Driver neo4jDriver;
     private final GraphSchemaService graphSchemaService;
     private final int graphContentSnippetLen;
+    private final RagProperties ragProperties;
+    private final LightRagIngestService lightRagIngestService;
 
     public KnowledgeService(
             KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingStoreIngestor embeddingStoreIngestor,
             Driver neo4jDriver,
             GraphSchemaService graphSchemaService,
-            @Value("${contractlens.rag.graph.content-snippet-len:200}") int graphContentSnippetLen
+            @Value("${contractlens.rag.graph.content-snippet-len:200}") int graphContentSnippetLen,
+            RagProperties ragProperties,
+            LightRagIngestService lightRagIngestService
     ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingStoreIngestor = embeddingStoreIngestor;
         this.neo4jDriver = neo4jDriver;
         this.graphSchemaService = graphSchemaService;
         this.graphContentSnippetLen = Math.max(graphContentSnippetLen, 0);
+        this.ragProperties = ragProperties;
+        this.lightRagIngestService = lightRagIngestService;
     }
 
     public Page<KnowledgeDoc> listKnowledgeDocs(Pageable pageable) {
@@ -75,6 +85,17 @@ public class KnowledgeService {
 
     public void rebuild() {
         List<KnowledgeDoc> knowledgeDocs = knowledgeDocRepository.findAll();
+        if (ragProperties.getMode() == RagMode.LIGHTRAG) {
+            try {
+                LightRagIngestResult result = lightRagIngestService.rebuildInputs(knowledgeDocs);
+                if (!result.ok()) {
+                    throw new IllegalStateException(result.error());
+                }
+            } catch (Exception ex) {
+                throw new IllegalStateException("LightRAG rebuild failed: " + ex.getMessage(), ex);
+            }
+            return;
+        }
         try {
             graphSchemaService.ensureConstraints();
             upsertKnowledgeGraph(knowledgeDocs);

@@ -1,7 +1,12 @@
 package com.contractlens.controller;
 
 import com.contractlens.dto.KnowledgeStatusResponse;
+import com.contractlens.rag.RagMode;
+import com.contractlens.rag.RagProperties;
 import com.contractlens.repository.KnowledgeDocRepository;
+import com.contractlens.service.lightrag.LightRagClient;
+import com.contractlens.service.lightrag.LightRagProperties;
+import com.contractlens.service.lightrag.LightRagQueryResult;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.retriever.Retriever;
 import org.neo4j.driver.Driver;
@@ -33,6 +38,15 @@ public class KnowledgeStatusController {
     @Autowired
     private Driver neo4jDriver;
 
+    @Autowired
+    private RagProperties ragProperties;
+
+    @Autowired
+    private LightRagProperties lightRagProperties;
+
+    @Autowired
+    private LightRagClient lightRagClient;
+
     @Value("${langchain4j.chroma.embedding-store.url:}")
     private String embeddingStoreUrl;
 
@@ -61,16 +75,34 @@ public class KnowledgeStatusController {
         Long graphEdgeCount = null;
         Integer graphProbeReturnedDocs = null;
         String graphProbeError = null;
+        Boolean lightRagOk = null;
+        Integer lightRagProbeReturnedChunks = null;
+        Integer lightRagProbeContextChars = null;
+        String lightRagProbeError = null;
 
-        try {
-            int size = retriever.findRelevant(probeQuery).size();
-            hitCount = size;
-            returnedSegments = size;
-        } catch (Exception ex) {
-            probeError = ex.getMessage();
+        if (ragProperties.getMode() == RagMode.LIGHTRAG) {
+            LightRagQueryResult result = lightRagClient.query(probeQuery);
+            if (result.ok()) {
+                lightRagOk = true;
+                lightRagProbeReturnedChunks = result.retrievedChunkCount();
+                lightRagProbeContextChars = result.context() != null ? result.context().length() : 0;
+                returnedSegments = lightRagProbeReturnedChunks;
+            } else {
+                lightRagOk = false;
+                lightRagProbeError = result.error();
+                probeError = result.error();
+            }
+        } else {
+            try {
+                int size = retriever.findRelevant(probeQuery).size();
+                hitCount = size;
+                returnedSegments = size;
+            } catch (Exception ex) {
+                probeError = ex.getMessage();
+            }
         }
 
-        if (graphEnabled) {
+        if (ragProperties.getMode() != RagMode.LIGHTRAG && graphEnabled) {
             Set<String> probeRiskTypes = extractRiskTypesFromQuery(probeQuery);
             Set<String> probeLawArticles = extractLawArticlesFromQuery(probeQuery);
             try (Session session = neo4jDriver.session()) {
@@ -95,21 +127,29 @@ public class KnowledgeStatusController {
         }
 
         KnowledgeStatusResponse response = KnowledgeStatusResponse.builder()
+                .ragMode(ragProperties.getMode().name().toLowerCase())
                 .knowledgeDocsCount(count)
-                .embeddingStoreUrl(blankToNull(embeddingStoreUrl))
-                .embeddingStoreCollection(blankToNull(embeddingStoreCollection))
+                .embeddingStoreUrl(ragProperties.getMode() == RagMode.LIGHTRAG ? blankToNull(lightRagProperties.getBaseUrl()) : blankToNull(embeddingStoreUrl))
+                .embeddingStoreCollection(ragProperties.getMode() == RagMode.LIGHTRAG ? null : blankToNull(embeddingStoreCollection))
                 .retrieverProbeHitCount(hitCount)
                 .retrieverProbeReturnedSegments(returnedSegments)
                 .retrieverTopK(retrieverTopK)
                 .retrieverMinScore(retrieverMinScore)
                 .retrieverProbeQuery(blankToNull(probeQuery))
                 .retrieverProbeError(blankToNull(probeError))
-                .graphEnabled(graphEnabled)
+                .graphEnabled(ragProperties.getMode() == RagMode.LIGHTRAG ? null : graphEnabled)
                 .graphNodeCount(graphNodeCount)
                 .graphEdgeCount(graphEdgeCount)
                 .graphProbeQuery(blankToNull(probeQuery))
                 .graphProbeReturnedDocs(graphProbeReturnedDocs)
                 .graphProbeError(blankToNull(graphProbeError))
+                .lightRagEnabled(lightRagProperties.isEnabled())
+                .lightRagBaseUrl(blankToNull(lightRagProperties.getBaseUrl()))
+                .lightRagQueryMode(blankToNull(lightRagProperties.getQueryMode()))
+                .lightRagOk(lightRagOk)
+                .lightRagProbeReturnedChunks(lightRagProbeReturnedChunks)
+                .lightRagProbeContextChars(lightRagProbeContextChars)
+                .lightRagProbeError(blankToNull(lightRagProbeError))
                 .build();
 
         return ResponseEntity.ok(response);

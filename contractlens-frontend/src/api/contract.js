@@ -54,9 +54,10 @@ async function parseSseResponse(response, { onEvent, signal }) {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let shouldStop = false;
 
     const dispatch = (block) => {
-        const lines = block.split('\n');
+        const lines = block.split(/\r?\n/);
         let eventName = null;
         const dataLines = [];
         for (const line of lines) {
@@ -79,7 +80,10 @@ async function parseSseResponse(response, { onEvent, signal }) {
         } catch {
             data = dataText;
         }
-        onEvent?.(eventName, data);
+        const result = onEvent?.(eventName, data);
+        if (result === true) {
+            shouldStop = true;
+        }
     };
 
     while (true) {
@@ -94,10 +98,16 @@ async function parseSseResponse(response, { onEvent, signal }) {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
 
-        const parts = buffer.split(/\n\n/);
+        const parts = buffer.split(/\r?\n\r?\n/);
         buffer = parts.pop() || '';
         for (const part of parts) {
             dispatch(part);
+            if (shouldStop) {
+                try {
+                    await reader.cancel();
+                } catch {}
+                return;
+            }
         }
     }
 
@@ -119,11 +129,6 @@ export const contractService = {
 
     getUserContracts() {
         return http.get('/contracts');
-    },
-
-    async analyzeContract(contractId) {
-        const res = await http.post(`/analysis/contracts/${contractId}`);
-        return { ...res, data: normalizeAnalysisResult(res.data) };
     },
 
     deleteContract(contractId) {
@@ -160,7 +165,9 @@ export const contractService = {
                 else if (eventName === 'done') {
                     const normalized = normalizeAnalysisResult(payload?.analysisResult);
                     onDone?.({ ...payload, analysisResult: normalized });
+                    return true;
                 } else if (eventName === 'error') onError?.(payload);
+                if (eventName === 'error') return true;
             },
         });
     },

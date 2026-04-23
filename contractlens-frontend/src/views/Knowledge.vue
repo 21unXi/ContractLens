@@ -6,7 +6,7 @@
         <p class="sub">查看已收录的知识库文档，并确认向量检索是否可用</p>
       </div>
       <button class="primary-btn" :disabled="rebuilding" @click="rebuild">
-        {{ rebuilding ? '重建中...' : '重建向量库' }}
+        {{ rebuilding ? '重建中...' : rebuildLabel }}
       </button>
     </header>
 
@@ -18,40 +18,67 @@
       </div>
       <div class="card-body">
         <div class="kv">
+          <span class="k">RAG 模式</span>
+          <span class="v">{{ ragModeLabel }}</span>
+        </div>
+        <div class="kv">
           <span class="k">文档数量</span>
           <span class="v">{{ status?.knowledgeDocsCount ?? '--' }}</span>
         </div>
-        <div class="kv">
-          <span class="k">向量库地址</span>
-          <span class="v">{{ status?.embeddingStoreUrl ?? '--' }}</span>
-        </div>
-        <div class="kv">
-          <span class="k">Collection</span>
-          <span class="v">{{ status?.embeddingStoreCollection ?? '--' }}</span>
-        </div>
-        <div class="kv">
-          <span class="k">检索探测返回条数</span>
-          <span class="v">{{ probeSummary }}</span>
-        </div>
-        <div v-if="status?.retrieverProbeError" class="banner banner-warn">
-          探测失败：{{ status.retrieverProbeError }}
-        </div>
-        <div class="divider"></div>
-        <div class="kv">
-          <span class="k">图谱启用</span>
-          <span class="v">{{ graphEnabledLabel }}</span>
-        </div>
-        <div class="kv">
-          <span class="k">图谱节点/关系</span>
-          <span class="v">{{ graphCountSummary }}</span>
-        </div>
-        <div class="kv">
-          <span class="k">图谱探测返回条数</span>
-          <span class="v">{{ graphProbeSummary }}</span>
-        </div>
-        <div v-if="status?.graphProbeError" class="banner banner-warn">
-          图谱探测失败：{{ status.graphProbeError }}
-        </div>
+        <template v-if="isLightRag">
+          <div class="kv">
+            <span class="k">LightRAG 服务</span>
+            <span class="v">{{ status?.lightRagBaseUrl ?? '--' }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">LightRAG 检索模式</span>
+            <span class="v">{{ status?.lightRagQueryMode ?? '--' }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">探测返回 chunks</span>
+            <span class="v">{{ lightRagProbeSummary }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">探测上下文长度</span>
+            <span class="v">{{ status?.lightRagProbeContextChars ?? '--' }}</span>
+          </div>
+          <div v-if="status?.lightRagProbeError" class="banner banner-warn">
+            探测失败：{{ status.lightRagProbeError }}
+          </div>
+        </template>
+        <template v-else>
+          <div class="kv">
+            <span class="k">向量库地址</span>
+            <span class="v">{{ status?.embeddingStoreUrl ?? '--' }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">Collection</span>
+            <span class="v">{{ status?.embeddingStoreCollection ?? '--' }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">检索探测返回条数</span>
+            <span class="v">{{ probeSummary }}</span>
+          </div>
+          <div v-if="status?.retrieverProbeError" class="banner banner-warn">
+            探测失败：{{ status.retrieverProbeError }}
+          </div>
+          <div class="divider"></div>
+          <div class="kv">
+            <span class="k">图谱启用</span>
+            <span class="v">{{ graphEnabledLabel }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">图谱节点/关系</span>
+            <span class="v">{{ graphCountSummary }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">图谱探测返回条数</span>
+            <span class="v">{{ graphProbeSummary }}</span>
+          </div>
+          <div v-if="status?.graphProbeError" class="banner banner-warn">
+            图谱探测失败：{{ status.graphProbeError }}
+          </div>
+        </template>
       </div>
     </section>
 
@@ -96,6 +123,14 @@ const loading = ref(false);
 const rebuilding = ref(false);
 const error = ref(null);
 const isLastPage = computed(() => docs.value.length < size.value);
+const isLightRag = computed(() => (status.value?.ragMode || '') === 'lightrag');
+const ragModeLabel = computed(() => {
+  const mode = status.value?.ragMode;
+  if (!mode) return '--';
+  if (mode === 'lightrag') return 'LightRAG';
+  if (mode === 'legacy') return 'Legacy（Chroma/Neo4j）';
+  return mode;
+});
 const probeSummary = computed(() => {
   const s = status.value || {};
   const returned = s.retrieverProbeReturnedSegments ?? s.retrieverProbeHitCount;
@@ -107,6 +142,15 @@ const probeSummary = computed(() => {
   if (minScore !== null && minScore !== undefined) meta.push(`阈值=${minScore}`);
   if (meta.length === 0) return `${returned}`;
   return `${returned}（${meta.join('，')}）`;
+});
+
+const rebuildLabel = computed(() => (isLightRag.value ? '同步到 LightRAG' : '重建向量库'));
+
+const lightRagProbeSummary = computed(() => {
+  const s = status.value || {};
+  const returned = s.lightRagProbeReturnedChunks;
+  if (returned === null || returned === undefined) return '--';
+  return `${returned}`;
 });
 
 const graphEnabledLabel = computed(() => {
