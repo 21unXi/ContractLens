@@ -7,6 +7,7 @@ import lombok.Data;
 @Builder
 public class KnowledgeStatusResponse {
 
+    private String ragMode;
     private long knowledgeDocsCount;
     private String embeddingStoreUrl;
     private String embeddingStoreCollection;
@@ -22,4 +23,12 @@ public class KnowledgeStatusResponse {
     private String graphProbeQuery;
     private Integer graphProbeReturnedDocs;
     private String graphProbeError;
+
+    private Boolean lightRagEnabled;
+    private String lightRagBaseUrl;
+    private String lightRagQueryMode;
+    private Boolean lightRagOk;
+    private Integer lightRagProbeReturnedChunks;
+    private Integer lightRagProbeContextChars;
+    private String lightRagProbeError;
 }

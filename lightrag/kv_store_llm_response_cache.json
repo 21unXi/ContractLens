@@ -1,0 +1,42 @@
+{
+  "hybrid:keywords:4d4356fb829f860b68798e5a6a0ef627": {
+    "return": "{\"high_level_keywords\": [\"Rental agreement\", \"Deposit\", \"Breach of contract\"], \"low_level_keywords\": [\"Rental deposit\", \"Penalty fee\", \"Lease terms\", \"Contractual obligations\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "租房合同 押金 违约金",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 40,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1776927461,
+    "update_time": 1776927461,
+    "_id": "hybrid:keywords:4d4356fb829f860b68798e5a6a0ef627"
+  },
+  "hybrid:keywords:0622778def3d26e91c3ef43e27709d1e": {
+    "return": "{\"high_level_keywords\": [\"House lease contract\", \"Rental agreement\", \"Residential leasing\"], \"low_level_keywords\": [\"Beijing Chaoyang District\", \"Fully furnished apartment\", \"Air conditioner\", \"Refrigerator\", \"Washing machine\", \"Water heater\", \"Gas stove\", \"Rent payment\", \"Security deposit\", \"Contract termination\", \"Breach of contract\", \"Dispute resolution\"]}",
+    "cache_type": "keywords",
+    "chunk_id": null,
+    "original_prompt": "房屋租赁合同\n\n合同编号：ZL-2026-001\n\n第一条 房屋基本情况\n甲方（出租人）将位于北京市朝阳区XX小区XX号楼XX单元XX室的房屋（以下简称「该房屋」）出租给乙方（承租人）使用。该房屋建筑面积约80平方米，装修情况为精装修，房屋设施包括：空调、冰箱、洗衣机、热水器、燃气灶。\n第二条 租赁用途\n乙方承诺该房屋仅用于居住使用，不得擅自改变用途。\n第三条 租赁期限\n租赁期限为_____年，自_____年_____月_____日起至_____年_____月_____日止。\n第四条 租金及押金\n1. 租金：每月人民币_____元（￥_____），租金按_____支付。\n2. 押金：乙方需向甲方支付押金人民币_____元（￥_____），租赁期满后甲方无息退还。\n3. 租金调整：租赁期内，如需调整租金，须双方协商一致。\n第五条 房屋维修\n在租赁期内，房屋及其附属设施的维修责任由甲方负责。乙方应合理使用房屋及其附属设施，因使用不当造成损坏的，由乙方承担维修费用。\n第六条 合同解除\n1. 甲方有权提前收回房屋的情形：\n   （1）乙方逾期支付租金达_____天以上的；\n   （2）乙方擅自转租、转借他人的；\n   （3）乙方破坏房屋结构或擅自改变房屋用途的。\n2. 乙方有权提前退租的情形：须提前_____天书面通知甲方，并承担_____个月租金作为违约金。\n第七条 违约责任\n1. 甲方未按约定提供房屋的，须退还剩余租金，并支付乙方一个月租金作为赔偿。\n2. 乙方未按约定支付租金的，每逾期一天，须按未支付租金的_____%向甲方支付违约金。逾期超过_____天，甲方有权解除合同。\n3. 乙方提前解约的，须支付甲方剩余租期租金的_____%作为违约金。\n第八条 争议解决\n本合同在履行过程中发生的争议，由双方当事人协商解决；协商不成的，依法向人民法院起诉。\n第九条 其他约定\n1. 本合同未尽事宜，双方可另行签订补充协议，补充协议与本合同具有同等法律效力。\n2. 本合同自双方签字（或盖章）之日起生效。\n3. 本合同一式两份，甲乙双方各执一份。\n\n\n甲方（签字）：________________     日期：_____年_____月_____日\n\n乙方（签字）：________________     日期：_____年_____月_____日",
+    "queryparam": {
+      "mode": "hybrid",
+      "response_type": "Multiple Paragraphs",
+      "top_k": 40,
+      "chunk_top_k": 20,
+      "max_entity_tokens": 6000,
+      "max_relation_tokens": 8000,
+      "max_total_tokens": 30000,
+      "user_prompt": "",
+      "enable_rerank": true
+    },
+    "create_time": 1776927482,
+    "update_time": 1776927482,
+    "_id": "hybrid:keywords:0622778def3d26e91c3ef43e27709d1e"
+  }
+}

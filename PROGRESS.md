@@ -1,6 +1,6 @@
 # ContractLens 开发进度
 
-最后更新：2026-04-21
+最后更新：2026-04-23
 
 ---
 
@@ -12,7 +12,7 @@
 | 合同管理 | ✅ 已完成 | 上传/列表/删除（硬删除）/按 ID 获取 |
 | 合同分析（结构化） | ✅ 已完成 | 生成结构化风险结果并落库 |
 | 合同分析（对话式流式 SSE） | ✅ 已完成 | status/answer/done/error 事件、追问、多轮会话（内存态） |
-| 知识库（RAG） | ✅ 已完成 | MySQL 文档源 + 向量化 ingest + 检索（是否有数据取决于导入与 rebuild） |
+| 知识库（RAG） | ✅ 已完成 | 支持 legacy（Chroma + Neo4j）与 LightRAG（服务化接入）两种模式；以 `contractlens.rag.mode` 切换 |
 | 前端工作台 | ✅ 已完成 | 控制台、对话区、摘要区、合同列表、删除与动态统计 |
 | 历史/设置/知识库页面 | ✅ 已完成 | 可导航、可用、支持查看/触发 rebuild |
 | GraphRAG（Neo4j） | ✅ 已完成 | 分析链路接入：向量检索 + Neo4j 图谱检索，生成 graph_context 并落库，图谱失败自动降级并显式标记 |
@@ -36,11 +36,16 @@
   - 流式对话分析（SSE）：`POST /api/analysis/contracts/{contractId}/stream`（事件：status/answer/done/error）
   - AI 输出容错：支持 fenced JSON（```json ... ```）清洗后再解析，减少 JsonParseException
   - MySQL JSON 列映射：`analysis_results` 的 JSON 字段使用 Hibernate JSON 类型绑定，避免 binary charset 写入失败
-- **知识库模块（RAG + Neo4j Graph）**
+- **知识库模块（RAG）**
   - 文档源：MySQL `knowledge_docs`
-  - 状态：`GET /api/knowledge/status`（文档数、向量库配置、向量/图谱探测返回条数、图谱节点/关系数、错误信息）
+  - RAG 模式：`contractlens.rag.mode=legacy|lightrag`；`fallback-to-legacy` 控制 LightRAG 失败时是否回退
+  - 状态：`GET /api/knowledge/status`
+    - legacy：文档数、向量库配置、向量/图谱探测返回条数、图谱节点/关系数、错误信息
+    - lightrag：显示 ragMode、LightRAG 服务与探测结果（returnedChunks / contextChars / error）
   - 列表：`GET /api/knowledge/docs`（分页返回 docId/title/docType/createdAt）
-  - rebuild：`POST /api/knowledge/rebuild`（将 `knowledge_docs` ingest 到向量库；Neo4j 图谱 upsert 失败时自动降级但会记录失败原因）
+  - rebuild：`POST /api/knowledge/rebuild`
+    - legacy：将 `knowledge_docs` ingest 到向量库；Neo4j 图谱 upsert 失败时自动降级但会记录失败原因
+    - lightrag：把 `knowledge_docs` 同步为 LightRAG inputs 目录下的文本文件（由 LightRAG Server 负责索引）
   - Embedding 分批：对 `embedAll` 做批量封装，避免单次请求超过阿里云 text-embedding-v3 的 10 条文本限制
   - 检索探测说明：`retrieverProbe*` 表示 probeQuery 的“返回片段数”，且受 `retrieverTopK` 上限影响（默认 topK=5）
 
@@ -53,6 +58,8 @@
   - 对话式分析（默认入口）：流式渲染、追问、停止/重试、完成后刷新结构化摘要与条款卡片
   - 对话模式可隐藏左侧合同列表，给对话留出更多空间
   - 动态统计：知识库文档数从 `/api/knowledge/status` 获取（不再硬编码）
+  - SSE 稳定性：兼容 CRLF 分隔；收到 done/error 后主动结束读取，避免连接未关闭导致“分析中”卡住
+  - 项目清理：移除未使用的前端 API 封装与无效字段引用；收敛调试输出
 - **页面补齐**
   - 历史记录页：合同列表 + 一键进入对话分析
   - 设置页：展示认证状态与知识库状态 + 重建向量库按钮
@@ -79,7 +86,7 @@
 ### Knowledge
 - `GET /api/knowledge/status` 知识库状态
 - `GET /api/knowledge/docs?page=&size=` 知识库文档列表（分页）
-- `POST /api/knowledge/rebuild` 重建向量库（ingest）
+- `POST /api/knowledge/rebuild` 重建知识库（根据 `contractlens.rag.mode` 同步到 legacy 或 LightRAG）
 
 ---
 
@@ -90,6 +97,7 @@
   - `SecurityConfig`：JWT 鉴权/CORS/异常处理配置
   - `JwtRequestFilter`：解析 Authorization Bearer token
   - `AiConfig`：Retriever/EmbeddingStoreIngestor 装配
+  - `RagConfig`：RAG/LightRAG 配置属性装配
   - `Neo4jDriverConfig`：Neo4j Driver 装配
 - `src/main/java/com/contractlens/ai/`
   - `BatchingEmbeddingModel`：EmbeddingModel 批量封装（分批 embedAll）
@@ -106,6 +114,9 @@
   - `AnalysisChatSessionService`：会话（内存态）
   - `KnowledgeService`：从 knowledge_docs ingest 到向量库、同步 Neo4j 知识图谱、分页列表
   - `service/graph/GraphSchemaService`：Neo4j 约束与索引
+  - `service/lightrag/`：LightRAG（Server）集成：query 与 inputs-dir 同步
+- `src/main/java/com/contractlens/rag/`
+  - `RagMode`、`RagProperties`：RAG 模式切换与 fallback 配置
 - `src/main/java/com/contractlens/entity/`
   - `User`、`Contract`、`AnalysisResult`、`KnowledgeDoc`：MySQL 实体模型
 - `src/main/java/com/contractlens/repository/`
@@ -137,6 +148,8 @@
 - SSE 对话会话在后端为内存态（重启会丢失）；目前不做持久化聊天历史。
   - GraphRAG（Neo4j）已接入分析链路，但图谱查询失败会自动降级为仅向量检索（会在 graph_context 中标记 FAILED）。
 - “知识库是否可用”取决于 `knowledge_docs` 是否有数据、是否调用过 `/api/knowledge/rebuild`、以及 Chroma 是否可用。
+- LightRAG 模式下，`/api/knowledge/rebuild` 仅负责把 `knowledge_docs` 导出到 LightRAG 的 inputs 目录；LightRAG Server 的索引进度与行为由其自身实现决定。
+- LightRAG Server 的 `/query` 调用已修复为强制发送 JSON body；避免 FastAPI 报 422（body 缺失）。
 
 ---
 

@@ -30,7 +30,7 @@
       <header class="content-header">
         <div class="header-left">
           <h2>控制台概览</h2>
-          <p>欢迎回来，{{ authStore.username || '用户' }}</p>
+          <p>欢迎回来</p>
         </div>
         <div class="header-right">
           <button class="upload-trigger-btn" @click="triggerFileInput">
@@ -137,8 +137,8 @@
                 </div>
 
                 <form class="chat-input" @submit.prevent="sendFollowUp">
-                  <input v-model="followUp" type="text" placeholder="继续追问，例如：押金条款有哪些具体风险？" :disabled="chatStreaming" />
-                  <button type="submit" class="primary-btn" :disabled="chatStreaming || !followUp.trim()">发送</button>
+                  <input v-model="followUp" type="text" placeholder="继续追问（发送会中断当前生成），例如：押金条款有哪些具体风险？" />
+                  <button type="submit" class="primary-btn" :disabled="!followUp.trim()">发送</button>
                 </form>
               </div>
 
@@ -254,7 +254,7 @@ const fetchContracts = async () => {
     const response = await contractService.getUserContracts();
     contracts.value = response.data;
   } catch (err) {
-    console.error("Fetch failed", err);
+    uploadError.value = '加载合同失败';
   }
 };
 

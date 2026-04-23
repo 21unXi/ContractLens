@@ -11,8 +11,12 @@ contractlens-backend/mvnw.cmd
 
 # 前端
 contractlens-frontend/node_modules/
-contractlens-backend/dist/
+contractlens-frontend/dist/
 contractlens-frontend/.vite/
+
+# 本地运行/构建产物
+venv/
+chroma/*.sqlite3
 
 # IDE
 .idea/
