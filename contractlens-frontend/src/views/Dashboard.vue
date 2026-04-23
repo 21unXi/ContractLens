@@ -115,7 +115,7 @@
 
             <div v-if="selectedContractId" class="analysis-content">
               <div v-if="analysisMode === 'chat'" class="chat-panel">
-                <div v-if="chatStatus" class="chat-status">
+                <div v-if="chatStreaming && chatStatus" class="chat-status">
                   {{ chatStatus.message }}
                 </div>
                 <div v-if="chatError" class="status-banner status-error">
