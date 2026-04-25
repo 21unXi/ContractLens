@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/contracts")
@@ -33,9 +34,10 @@ public class ContractController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Contract> getContractById(@PathVariable Long id) {
-        Contract contract = contractService.getContractById(id);
-        return ResponseEntity.ok(contract);
+    public ResponseEntity<Contract> getContractById(@PathVariable Long id, Authentication authentication) {
+        String username = authentication.getName();
+        Optional<Contract> contract = contractService.getContractById(username, id);
+        return contract.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")

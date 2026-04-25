@@ -95,15 +95,22 @@ Vue 3 前端  ──HTTP/JWT──>  Spring Boot 后端  ──>  MySQL（业务
 
 ### 5.2 推荐配置方式（避免泄露密钥）
 
-强烈建议使用环境变量或本地 profile 文件，不要把真实密钥/密码提交到仓库。
+开发环境采用 profile 文件集中管理明文密钥，避免写入 `application.yml`：
 
-常用环境变量（示例）：
-- MySQL：`SPRING_DATASOURCE_URL/USERNAME/PASSWORD`
-- JWT：`JWT_SECRET`
-- DashScope：`DASHSCOPE_API_KEY`
+- `application.yml` 默认启用 `dev` profile（可用 `SPRING_PROFILES_ACTIVE` 覆盖）
+- 本机创建（不入库）：`contractlens-backend/src/main/resources/application-dev.yml`
+  - 复制模板：`application-dev.example.yml` → `application-dev.yml`
+  - 在 dev 文件中填写：
+    - `contractlens.dev.datasource.password`
+    - `contractlens.dev.jwt.secret`
+    - `contractlens.dev.dashscope.api-key`
+    - （可选）`contractlens.dev.neo4j.password`
+
+非敏感或与运行环境强绑定的配置仍可用环境变量覆盖（示例）：
+- MySQL：`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`
 - RAG 模式：`CONTRACTLENS_RAG_MODE=lightrag|legacy`
 - LightRAG：`LIGHTRAG_BASE_URL`、`LIGHTRAG_QUERY_PATH`
-- legacy：`CHROMA_URL`、`NEO4J_URI/USERNAME/PASSWORD`
+- legacy：`CHROMA_URL`、`NEO4J_URI`、`NEO4J_USERNAME`
 
 ---
 
@@ -130,5 +137,4 @@ Vue 3 前端  ──HTTP/JWT──>  Spring Boot 后端  ──>  MySQL（业务
 
 ---
 
-*文档版本：v4.0.0（对齐当前实现）| 最后更新：2026-04-23*
-
+*文档版本：v4.0.0（对齐当前实现）| 最后更新：2026-04-25*

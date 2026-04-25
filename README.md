@@ -17,24 +17,21 @@
 ### 2. 配置
 
 ```bash
-# 推荐使用环境变量（不要把真实密钥写入仓库）
-# MySQL
+# 1) 后端使用 dev profile（默认启用）
+# - 复制模板：contractlens-backend/src/main/resources/application-dev.example.yml
+# - 粘贴为：contractlens-backend/src/main/resources/application-dev.yml
+# - 在 application-dev.yml 里填入 MySQL/JWT/DashScope/Neo4j（如需）等明文
+#
+# 注意：application-dev.yml 已被 .gitignore 忽略，不会入库；请勿提交真实密钥。
+#
+# 2) 数据库连接（url/username 仍走环境变量；password 在 application-dev.yml 里配）
 SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/contractlens?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
 SPRING_DATASOURCE_USERNAME=root
-SPRING_DATASOURCE_PASSWORD=your_password
 
-# JWT
-JWT_SECRET=dev-only-change-me-change-me-change-me-change-me
-
-# 阿里云百炼（DashScope 兼容 OpenAI 协议）
-DASHSCOPE_API_KEY=your_real_key
-
-# 默认 RAG 模式：LightRAG
+# 3) RAG 模式（默认 LightRAG）
 CONTRACTLENS_RAG_MODE=lightrag
 LIGHTRAG_BASE_URL=http://localhost:9621
 LIGHTRAG_QUERY_PATH=/query
-
-# 可选：LightRAG 失败时回退 legacy（默认 true）
 CONTRACTLENS_RAG_FALLBACK_TO_LEGACY=true
 
 # legacy（可选）如果要启用：
@@ -42,7 +39,6 @@ CONTRACTLENS_RAG_FALLBACK_TO_LEGACY=true
 # CHROMA_URL=http://localhost:8000
 # NEO4J_URI=bolt://localhost:7687
 # NEO4J_USERNAME=neo4j
-# NEO4J_PASSWORD=your_password
 ```
 
 ### 3. 启动
@@ -50,7 +46,7 @@ CONTRACTLENS_RAG_FALLBACK_TO_LEGACY=true
 ```bash
 # 1) 启动依赖
 # - MySQL 8.0
-# - LightRAG Server（默认）
+# - LightRAG Server（默认，见下方“启动 LightRAG”）
 # - （可选）Chroma + Neo4j（仅 legacy 需要）
 
 # 2) 启动后端
@@ -62,6 +58,17 @@ cd contractlens-frontend
 npm install
 npm run dev
 ```
+
+### 3.1 启动 LightRAG（默认 RAG 模式）
+
+本项目后端默认调用：`http://localhost:9621/query`（可通过 `LIGHTRAG_BASE_URL/LIGHTRAG_QUERY_PATH` 修改）。
+
+你可以用 LightRAG 官方的 API 方式启动（示例命令，按你的 Python 环境调整）：  
+- 安装（带 API 依赖）：`pip install "lightrag-hku[api]"`  
+- 启动服务：`lightrag-server --host 0.0.0.0 --port 9621`  
+  - 或用 Uvicorn：`uvicorn lightrag.api.lightrag_server:app --reload --host 0.0.0.0 --port 9621`  
+
+LightRAG 侧的具体 `.env`/模型配置请以其官方文档为准，确保 `POST /query` 可用后再启动 ContractLens。
 
 ### 4. 访问
 

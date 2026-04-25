@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ContractService {
@@ -53,8 +54,8 @@ public class ContractService {
         return contractRepository.findByUserId(user.getId());
     }
 
-    public Contract getContractById(Long id) {
-        return contractRepository.findById(id).orElseThrow(() -> new RuntimeException("Contract not found"));
+    public Optional<Contract> getContractById(String username, Long id) {
+        return contractRepository.findByIdAndUserUsername(id, username);
     }
 
     @Transactional

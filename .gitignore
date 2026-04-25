@@ -1,7 +1,7 @@
 # 忽略敏感配置
 application-local.yml
 application-*.yml
-!application-example.yml
+!application-dev.example.yml
 
 # 后端
 contractlens-backend/target/
