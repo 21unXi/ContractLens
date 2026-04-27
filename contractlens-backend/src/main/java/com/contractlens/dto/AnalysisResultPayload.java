@@ -12,6 +12,8 @@ public class AnalysisResultPayload {
 
     private Long id;
     private Long contractId;
+    private String contractContentHash;
+    private Boolean stale;
     private String summary;
     private String riskLevel;
     private Integer riskScore;
@@ -29,6 +31,7 @@ public class AnalysisResultPayload {
         return AnalysisResultPayload.builder()
                 .id(result.getId())
                 .contractId(result.getContract() != null ? result.getContract().getId() : null)
+                .contractContentHash(result.getContractContentHash())
                 .summary(result.getSummary())
                 .riskLevel(result.getRiskLevel())
                 .riskScore(result.getRiskScore())

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -23,7 +24,11 @@ public class LightRagClient {
         this.properties = properties;
         this.objectMapper = objectMapper;
         String baseUrl = properties.getBaseUrl();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(2000);
+        requestFactory.setReadTimeout(10000);
         this.restClient = restClientBuilder
+                .requestFactory(requestFactory)
                 .baseUrl(StringUtils.hasText(baseUrl) ? baseUrl.trim() : null)
                 .build();
     }
@@ -45,6 +50,7 @@ public class LightRagClient {
         payload.put("mode", properties.getQueryMode());
         payload.put("only_need_context", properties.isOnlyNeedContext());
 
+        long startNs = System.nanoTime();
         try {
             String json = objectMapper.writeValueAsString(payload);
             ResponseEntity<String> entity = restClient.post()
@@ -56,27 +62,31 @@ public class LightRagClient {
                     .toEntity(String.class);
             String body = entity.getBody();
             if (!StringUtils.hasText(body)) {
-                return LightRagQueryResult.ok("", null, null);
+                long latencyMs = (System.nanoTime() - startNs) / 1_000_000;
+                return LightRagQueryResult.ok("", null, latencyMs, null);
             }
-            LightRagQueryResult parsed = parseQueryResponse(body);
+            long latencyMs = (System.nanoTime() - startNs) / 1_000_000;
+            LightRagQueryResult parsed = parseQueryResponse(body, latencyMs);
             if (parsed != null) {
                 return parsed;
             }
-            return LightRagQueryResult.ok(body, null, body);
+            return LightRagQueryResult.ok(body, null, latencyMs, body);
         } catch (RestClientResponseException ex) {
+            long latencyMs = (System.nanoTime() - startNs) / 1_000_000;
             String responseBody = ex.getResponseBodyAsString();
             String detail = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
-            return LightRagQueryResult.error("HTTP " + ex.getRawStatusCode() + ": " + detail);
+            return LightRagQueryResult.error("HTTP " + ex.getRawStatusCode() + ": " + detail, latencyMs);
         } catch (Exception ex) {
-            return LightRagQueryResult.error(ex.getMessage());
+            long latencyMs = (System.nanoTime() - startNs) / 1_000_000;
+            return LightRagQueryResult.error(ex.getMessage(), latencyMs);
         }
     }
 
-    private LightRagQueryResult parseQueryResponse(String body) {
+    private LightRagQueryResult parseQueryResponse(String body, long latencyMs) {
         try {
             JsonNode root = objectMapper.readTree(body);
             if (root.isTextual()) {
-                return LightRagQueryResult.ok(root.asText(), null, body);
+                return LightRagQueryResult.ok(root.asText(), null, latencyMs, body);
             }
             String context = firstText(root, "response", "context", "retrieved_context", "retrieval_context", "prompt", "data");
             Integer chunkCount = firstArraySize(root, "chunks", "chunk_list", "contexts", "context_list", "retrieved_chunks");
@@ -84,7 +94,7 @@ public class LightRagClient {
             if (!StringUtils.hasText(context)) {
                 context = answer;
             }
-            return LightRagQueryResult.ok(StringUtils.hasText(context) ? context : "", chunkCount, body);
+            return LightRagQueryResult.ok(StringUtils.hasText(context) ? context : "", chunkCount, latencyMs, body);
         } catch (Exception ignore) {
             return null;
         }

@@ -1,5 +1,15 @@
 package com.contractlens.service.lightrag;
 
-public record LightRagIngestResult(boolean ok, int writtenDocs, String error) {
-}
+import java.time.Instant;
 
+public record LightRagIngestResult(
+        boolean ok,
+        String inputsDir,
+        int writtenDocs,
+        int deletedDocs,
+        int skippedDocs,
+        long durationMs,
+        Instant finishedAt,
+        String error
+) {
+}

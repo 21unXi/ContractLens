@@ -30,6 +30,9 @@ public class Contract {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+
     @Column(name = "file_type", nullable = false, length = 100)
     private String fileType;
 

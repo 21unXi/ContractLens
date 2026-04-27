@@ -1,6 +1,7 @@
 package com.contractlens.service;
 
 import com.contractlens.entity.KnowledgeDoc;
+import com.contractlens.dto.KnowledgeRebuildResponse;
 import com.contractlens.rag.RagMode;
 import com.contractlens.rag.RagProperties;
 import com.contractlens.repository.KnowledgeDocRepository;
@@ -83,7 +84,7 @@ public class KnowledgeService {
         return knowledgeDocRepository.findAll(pageable);
     }
 
-    public void rebuild() {
+    public KnowledgeRebuildResponse rebuild() {
         List<KnowledgeDoc> knowledgeDocs = knowledgeDocRepository.findAll();
         if (ragProperties.getMode() == RagMode.LIGHTRAG) {
             try {
@@ -91,10 +92,30 @@ public class KnowledgeService {
                 if (!result.ok()) {
                     throw new IllegalStateException(result.error());
                 }
+                return new KnowledgeRebuildResponse(
+                        ragProperties.getMode().name().toLowerCase(),
+                        true,
+                        result.writtenDocs(),
+                        result.deletedDocs(),
+                        result.skippedDocs(),
+                        result.durationMs(),
+                        result.finishedAt(),
+                        result.inputsDir(),
+                        null
+                );
             } catch (Exception ex) {
-                throw new IllegalStateException("LightRAG rebuild failed: " + ex.getMessage(), ex);
+                return new KnowledgeRebuildResponse(
+                        ragProperties.getMode().name().toLowerCase(),
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "LightRAG rebuild failed: " + ex.getMessage()
+                );
             }
-            return;
         }
         try {
             graphSchemaService.ensureConstraints();
@@ -103,6 +124,17 @@ public class KnowledgeService {
             log.warn("Knowledge graph rebuild failed, continue vector ingestion", ex);
         }
         ingestKnowledgeBase(knowledgeDocs);
+        return new KnowledgeRebuildResponse(
+                ragProperties.getMode().name().toLowerCase(),
+                true,
+                knowledgeDocs.size(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     public void ingestKnowledgeBase() {

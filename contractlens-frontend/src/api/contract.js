@@ -135,6 +135,15 @@ export const contractService = {
         return http.delete(`/contracts/${contractId}`);
     },
 
+    getChatHistory(contractId) {
+        return http.get(`/analysis/contracts/${contractId}/chat/history`);
+    },
+
+    async getAnalysisResult(contractId) {
+        const response = await http.get(`/analysis/contracts/${contractId}/result`);
+        return { ...response, data: normalizeAnalysisResult(response?.data) };
+    },
+
     async streamAnalyzeContract(contractId, message, { onStatus, onAnswer, onDone, onError, signal } = {}) {
         const token = localStorage.getItem('token');
         const headers = {

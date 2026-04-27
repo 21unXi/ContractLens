@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `contracts` (
   `title` VARCHAR(255) NOT NULL COMMENT '合同标题',
   `contract_type` VARCHAR(20) DEFAULT 'rental' COMMENT '合同类型',
   `content` TEXT NOT NULL COMMENT '合同原文',
+  `content_hash` VARCHAR(64) DEFAULT NULL COMMENT '合同内容hash',
   `file_type` VARCHAR(20) NOT NULL COMMENT '文件类型（txt/docx/pdf）',
   `file_path` VARCHAR(500) DEFAULT NULL COMMENT '原始文件存储路径',
   `file_size` BIGINT DEFAULT NULL COMMENT '文件大小（字节）',
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS `contracts` (
 CREATE TABLE IF NOT EXISTS `analysis_results` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `contract_id` BIGINT NOT NULL COMMENT '关联合同ID',
+  `contract_content_hash` VARCHAR(64) DEFAULT NULL COMMENT '分析基于的合同内容hash',
   `risk_level` VARCHAR(10) NOT NULL COMMENT '风险等级（高/中/低）',
   `risk_score` INT DEFAULT NULL COMMENT '风险评分（0-100）',
   `summary` TEXT COMMENT '合同一句话摘要',
@@ -52,7 +54,18 @@ CREATE TABLE IF NOT EXISTS `analysis_results` (
   UNIQUE KEY `uk_contract_id` (`contract_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分析结果表';
 
--- 4. 知识库文档表 (knowledge_docs)
+-- 4. 分析对话消息表 (analysis_chat_messages)
+CREATE TABLE IF NOT EXISTS `analysis_chat_messages` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `contract_id` BIGINT NOT NULL COMMENT '关联合同ID',
+  `role` VARCHAR(20) NOT NULL COMMENT '角色（user/assistant）',
+  `content` TEXT NOT NULL COMMENT '消息内容',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_chat_contract_created` (`contract_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分析对话消息表';
+
+-- 5. 知识库文档表 (knowledge_docs)
 CREATE TABLE IF NOT EXISTS `knowledge_docs` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `doc_id` VARCHAR(50) NOT NULL COMMENT '文档唯一ID',

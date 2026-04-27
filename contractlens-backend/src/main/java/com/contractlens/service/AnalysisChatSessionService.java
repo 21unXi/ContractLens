@@ -1,16 +1,13 @@
 package com.contractlens.service;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.contractlens.entity.AnalysisChatMessage;
+import com.contractlens.repository.AnalysisChatMessageRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
-import java.time.LocalDateTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,7 +15,11 @@ public class AnalysisChatSessionService {
 
     private static final int MAX_MESSAGES_PER_CONTRACT = 20;
 
-    private final ConcurrentMap<Long, Deque<AnalysisChatMessage>> sessions = new ConcurrentHashMap<>();
+    private final AnalysisChatMessageRepository analysisChatMessageRepository;
+
+    public AnalysisChatSessionService(AnalysisChatMessageRepository analysisChatMessageRepository) {
+        this.analysisChatMessageRepository = analysisChatMessageRepository;
+    }
 
     public void appendUserMessage(Long contractId, String content) {
         appendMessage(contractId, "user", content);
@@ -29,17 +30,12 @@ public class AnalysisChatSessionService {
     }
 
     public List<AnalysisChatMessage> getHistory(Long contractId) {
-        Deque<AnalysisChatMessage> messages = sessions.get(contractId);
-        if (messages == null) {
-            return List.of();
-        }
-        synchronized (messages) {
-            return new ArrayList<>(messages);
-        }
+        return analysisChatMessageRepository.findTop20ByContractIdOrderByCreatedAtAsc(contractId);
     }
 
     public int getMessageCount(Long contractId) {
-        return getHistory(contractId).size();
+        long count = analysisChatMessageRepository.countByContractId(contractId);
+        return count > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) count;
     }
 
     public String buildPromptHistory(Long contractId) {
@@ -48,21 +44,25 @@ public class AnalysisChatSessionService {
                 .collect(Collectors.joining("\n\n"));
     }
 
+    @Transactional
     private void appendMessage(Long contractId, String role, String content) {
-        Deque<AnalysisChatMessage> messages = sessions.computeIfAbsent(contractId, key -> new ArrayDeque<>());
-        synchronized (messages) {
-            messages.addLast(new AnalysisChatMessage(role, content, LocalDateTime.now()));
-            while (messages.size() > MAX_MESSAGES_PER_CONTRACT) {
-                messages.removeFirst();
-            }
-        }
-    }
+        AnalysisChatMessage message = new AnalysisChatMessage();
+        message.setContractId(contractId);
+        message.setRole(role);
+        message.setContent(content);
+        analysisChatMessageRepository.save(message);
 
-    @Data
-    @AllArgsConstructor
-    public static class AnalysisChatMessage {
-        private String role;
-        private String content;
-        private LocalDateTime createdAt;
+        long count = analysisChatMessageRepository.countByContractId(contractId);
+        int overflow = (int) (count - MAX_MESSAGES_PER_CONTRACT);
+        if (overflow <= 0) {
+            return;
+        }
+        List<AnalysisChatMessage> toDelete = analysisChatMessageRepository.findByContractIdOrderByCreatedAtAsc(
+                contractId,
+                PageRequest.of(0, overflow)
+        );
+        if (!toDelete.isEmpty()) {
+            analysisChatMessageRepository.deleteAllInBatch(toDelete);
+        }
     }
 }

@@ -2,9 +2,11 @@ package com.contractlens.service;
 
 import com.contractlens.entity.Contract;
 import com.contractlens.entity.User;
+import com.contractlens.repository.AnalysisChatMessageRepository;
 import com.contractlens.repository.AnalysisResultRepository;
 import com.contractlens.repository.ContractRepository;
 import com.contractlens.repository.UserRepository;
+import com.contractlens.util.ContentHashUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,9 @@ public class ContractService {
     @Autowired
     private AnalysisResultRepository analysisResultRepository;
 
+    @Autowired
+    private AnalysisChatMessageRepository analysisChatMessageRepository;
+
     public Contract uploadContract(String username, MultipartFile file) throws IOException {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
@@ -41,6 +46,7 @@ public class ContractService {
         contract.setUser(user);
         contract.setTitle(file.getOriginalFilename());
         contract.setContent(content);
+        contract.setContentHash(ContentHashUtil.sha256HexNormalized(content));
         contract.setFileType(file.getContentType());
         contract.setFilePath(filePath);
         contract.setFileSize(file.getSize());
@@ -63,6 +69,7 @@ public class ContractService {
         Contract contract = contractRepository.findByIdAndUserUsername(contractId, username)
                 .orElseThrow(() -> new RuntimeException("Contract not found"));
 
+        analysisChatMessageRepository.deleteByContractId(contractId);
         analysisResultRepository.deleteByContractId(contractId);
         contractRepository.delete(contract);
 

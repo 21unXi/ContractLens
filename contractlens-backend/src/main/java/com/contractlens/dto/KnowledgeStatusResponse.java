@@ -3,6 +3,8 @@ package com.contractlens.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
+
 @Data
 @Builder
 public class KnowledgeStatusResponse {
@@ -30,5 +32,11 @@ public class KnowledgeStatusResponse {
     private Boolean lightRagOk;
     private Integer lightRagProbeReturnedChunks;
     private Integer lightRagProbeContextChars;
+    private Long lightRagProbeLatencyMs;
     private String lightRagProbeError;
+
+    private Instant lastRebuildAt;
+    private Integer lastRebuildWrittenDocs;
+    private Integer lastRebuildDeletedDocs;
+    private Long lastRebuildDurationMs;
 }

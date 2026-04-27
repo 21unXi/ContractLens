@@ -7,6 +7,8 @@ import com.contractlens.repository.KnowledgeDocRepository;
 import com.contractlens.service.lightrag.LightRagClient;
 import com.contractlens.service.lightrag.LightRagProperties;
 import com.contractlens.service.lightrag.LightRagQueryResult;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.retriever.Retriever;
 import org.neo4j.driver.Driver;
@@ -21,6 +23,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.util.StringUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +52,9 @@ public class KnowledgeStatusController {
 
     @Autowired
     private LightRagClient lightRagClient;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Value("${langchain4j.chroma.embedding-store.url:}")
     private String embeddingStoreUrl;
@@ -78,10 +87,16 @@ public class KnowledgeStatusController {
         Boolean lightRagOk = null;
         Integer lightRagProbeReturnedChunks = null;
         Integer lightRagProbeContextChars = null;
+        Long lightRagProbeLatencyMs = null;
         String lightRagProbeError = null;
+        Instant lastRebuildAt = null;
+        Integer lastRebuildWrittenDocs = null;
+        Integer lastRebuildDeletedDocs = null;
+        Long lastRebuildDurationMs = null;
 
         if (ragProperties.getMode() == RagMode.LIGHTRAG) {
             LightRagQueryResult result = lightRagClient.query(probeQuery);
+            lightRagProbeLatencyMs = result.latencyMs();
             if (result.ok()) {
                 lightRagOk = true;
                 lightRagProbeReturnedChunks = result.retrievedChunkCount();
@@ -99,6 +114,31 @@ public class KnowledgeStatusController {
                 returnedSegments = size;
             } catch (Exception ex) {
                 probeError = ex.getMessage();
+            }
+        }
+
+        String inputsDir = lightRagProperties.getInputsDir();
+        if (StringUtils.hasText(inputsDir)) {
+            Path meta = Paths.get(inputsDir.trim()).resolve(".contractlens_rebuild.json");
+            if (Files.exists(meta)) {
+                try {
+                    String json = Files.readString(meta);
+                    JsonNode root = objectMapper.readTree(json);
+                    String finishedAt = root.path("finishedAt").asText(null);
+                    if (StringUtils.hasText(finishedAt)) {
+                        lastRebuildAt = Instant.parse(finishedAt);
+                    }
+                    if (root.hasNonNull("writtenDocs")) {
+                        lastRebuildWrittenDocs = root.get("writtenDocs").asInt();
+                    }
+                    if (root.hasNonNull("deletedDocs")) {
+                        lastRebuildDeletedDocs = root.get("deletedDocs").asInt();
+                    }
+                    if (root.hasNonNull("durationMs")) {
+                        lastRebuildDurationMs = root.get("durationMs").asLong();
+                    }
+                } catch (Exception ignore) {
+                }
             }
         }
 
@@ -149,7 +189,12 @@ public class KnowledgeStatusController {
                 .lightRagOk(lightRagOk)
                 .lightRagProbeReturnedChunks(lightRagProbeReturnedChunks)
                 .lightRagProbeContextChars(lightRagProbeContextChars)
+                .lightRagProbeLatencyMs(lightRagProbeLatencyMs)
                 .lightRagProbeError(blankToNull(lightRagProbeError))
+                .lastRebuildAt(lastRebuildAt)
+                .lastRebuildWrittenDocs(lastRebuildWrittenDocs)
+                .lastRebuildDeletedDocs(lastRebuildDeletedDocs)
+                .lastRebuildDurationMs(lastRebuildDurationMs)
                 .build();
 
         return ResponseEntity.ok(response);

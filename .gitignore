@@ -18,6 +18,10 @@ contractlens-frontend/.vite/
 venv/
 chroma/*.sqlite3
 
+# LightRAG 本地索引/元数据
+.contractlens_rebuild.json
+.contractlens_write_probe
+
 # IDE
 .idea/
 *.iml

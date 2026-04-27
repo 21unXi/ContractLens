@@ -1,6 +1,7 @@
 package com.contractlens.controller;
 
 import com.contractlens.dto.KnowledgeDocSummary;
+import com.contractlens.dto.KnowledgeRebuildResponse;
 import com.contractlens.service.KnowledgeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -21,9 +22,12 @@ public class KnowledgeController {
     private KnowledgeService knowledgeService;
 
     @PostMapping("/rebuild")
-    public ResponseEntity<String> rebuildKnowledgeBase() {
-        knowledgeService.rebuild();
-        return ResponseEntity.ok("Knowledge base rebuild completed.");
+    public ResponseEntity<KnowledgeRebuildResponse> rebuildKnowledgeBase() {
+        KnowledgeRebuildResponse response = knowledgeService.rebuild();
+        if (response != null && !response.ok()) {
+            return ResponseEntity.status(500).body(response);
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/docs")

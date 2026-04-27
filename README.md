@@ -95,6 +95,8 @@ ContractLens/
 
 - ✅ 租房合同风险分析
 - ✅ 对话式 SSE：status/answer/done/error 分段返回
+- ✅ 追问真流式：追问阶段支持 delta 增量输出
+- ✅ 会话持久化：刷新后仍可继续上次对话（最近 20 条）
 - ✅ RAG 双模式：LightRAG（默认）/ legacy（Chroma + Neo4j）
 - ✅ 房东/租客双视角分析
 - ✅ 法律依据引用

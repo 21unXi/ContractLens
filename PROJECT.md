@@ -78,11 +78,18 @@ Vue 3 前端  ──HTTP/JWT──>  Spring Boot 后端  ──>  MySQL（业务
 
 事件：
 - `status`：阶段提示（如检索、生成结构化、分段返回）
-- `answer`：按段落切分的文本片段（含 `index/isLast`）
+- `answer`：支持两种形态
+  - 初次分析：按段落切分的文本片段（`chunk/index/isLast`）
+  - 追问：增量输出（`delta/seq/isLast`）
 - `done`：本轮结束（携带结构化结果 payload）
 - `error`：失败（携带可重试提示）
 
-注意：当前“分段返回”是把完整回答切块后发送，用于改善用户等待体验；并非模型 token 级真流式。
+注意：初次分析的“分段返回”是把完整回答切块后发送；追问已支持 token/delta 级增量输出。
+
+### 4.3 会话持久化（最近 20 条）
+
+- 后端会话按 `contractId` 落库保存（最多 20 条），用于追问时构造 `conversation_history`
+- 前端进入合同对话时可从后端拉取历史并回显：`GET /api/analysis/contracts/{contractId}/chat/history`
 
 ---
 

@@ -31,12 +31,20 @@ langchain4j:
       api-key: ${contractlens.dev.dashscope.api-key:}
       base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       model-name: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
+      timeout: ${DASHSCOPE_CHAT_TIMEOUT:180s}
+      max-retries: ${DASHSCOPE_CHAT_MAX_RETRIES:1}
+      max-tokens: ${DASHSCOPE_CHAT_MAX_TOKENS:2048}
+      temperature: ${DASHSCOPE_CHAT_TEMPERATURE:0.2}
+      response-format: ${DASHSCOPE_CHAT_RESPONSE_FORMAT:json_object}
+      strict-json-schema: ${DASHSCOPE_CHAT_STRICT_JSON_SCHEMA:false}
       log-requests: ${DASHSCOPE_LOG_REQUESTS:false}
       log-responses: ${DASHSCOPE_LOG_RESPONSES:false}
     embedding-model:
       api-key: ${contractlens.dev.dashscope.api-key:}
       base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
       model-name: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
+      timeout: ${DASHSCOPE_EMBEDDING_TIMEOUT:30s}
+      max-retries: ${DASHSCOPE_EMBEDDING_MAX_RETRIES:1}
   chroma:
     embedding-store:
       url: ${CHROMA_URL:http://localhost:8000}
@@ -54,12 +62,15 @@ upload:
   allowed-types: txt,docx,pdf
 
 contractlens:
+  sse:
+    timeout-ms: ${CONTRACTLENS_SSE_TIMEOUT_MS:600000}
+    heartbeat-interval-ms: ${CONTRACTLENS_SSE_HEARTBEAT_INTERVAL_MS:15000}
   rag:
     mode: ${CONTRACTLENS_RAG_MODE:lightrag}
     fallback-to-legacy: ${CONTRACTLENS_RAG_FALLBACK_TO_LEGACY:true}
     probe-query: "租房合同 押金 违约金"
     retriever:
-      top-k: 5
+      top-k: 6
       min-score: 0.6
     graph:
       enabled: true

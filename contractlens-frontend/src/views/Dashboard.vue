@@ -117,6 +117,7 @@
               <div v-if="analysisMode === 'chat'" class="chat-panel">
                 <div v-if="chatStreaming && chatStatus" class="chat-status">
                   {{ chatStatus.message }}
+                  <span v-if="chatStatus?.elapsedMs != null">（{{ chatStatus.elapsedMs }}ms）</span>
                 </div>
                 <div v-if="chatError" class="status-banner status-error">
                   {{ chatError.message || '分析失败' }}
@@ -143,6 +144,9 @@
               </div>
 
               <div v-else-if="analysisResult" class="fade-in">
+                <div v-if="analysisResult?.stale" class="status-banner status-warning">
+                  该摘要可能已过期，建议重新分析
+                </div>
                 <AnalysisSummary :summary="analysisResult" />
 
                 <div class="clause-list fade-in">
@@ -267,8 +271,21 @@ const fetchKnowledgeStatus = async () => {
   }
 };
 
-const selectContract = (contract) => {
+const selectContract = async (contract) => {
   selectedContractId.value = contract.id;
+  await analysisChatStore.loadHistory(contract.id);
+  await analysisChatStore.loadAnalysisResult(contract.id);
+};
+
+const openContractById = async (contractId) => {
+  if (!contractId) return;
+  selectedContractId.value = contractId;
+  analysisMode.value = 'chat';
+  listCollapsed.value = true;
+  currentView.value = 'tenant';
+  followUp.value = '';
+  await analysisChatStore.loadHistory(contractId);
+  await analysisChatStore.loadAnalysisResult(contractId);
 };
 
 const stopStreaming = () => {
@@ -367,7 +384,7 @@ onMounted(() => {
 
   const initialId = Number(route.query?.contractId);
   if (initialId) {
-    startAnalysis(initialId);
+    openContractById(initialId);
   }
 });
 </script>
@@ -740,6 +757,12 @@ onMounted(() => {
   background: #fef2f2;
   color: var(--error-color);
   border: 1px solid #fecaca;
+}
+
+.status-warning {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
 }
 
 .loader {

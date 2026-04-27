@@ -58,6 +58,10 @@
             <span class="k">探测上下文长度</span>
             <span class="v">{{ status?.lightRagProbeContextChars ?? '--' }}</span>
           </div>
+          <div class="kv">
+            <span class="k">探测延迟(ms)</span>
+            <span class="v">{{ status?.lightRagProbeLatencyMs ?? '--' }}</span>
+          </div>
           <div v-if="status?.lightRagProbeError" class="banner banner-warn">
             探测失败：{{ status.lightRagProbeError }}
           </div>

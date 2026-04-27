@@ -20,6 +20,9 @@ public class AnalysisResult {
     @JoinColumn(name = "contract_id", referencedColumnName = "id", nullable = false)
     private Contract contract;
 
+    @Column(name = "contract_content_hash", length = 64)
+    private String contractContentHash;
+
     @Column(name = "risk_level", nullable = false, length = 10)
     private String riskLevel;
 

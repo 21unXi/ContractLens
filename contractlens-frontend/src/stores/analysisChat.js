@@ -65,6 +65,18 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
                 session.lastAssistantMessageIndex = null;
             }
         },
+        appendAssistantDelta(contractId, delta, isLast) {
+            const session = this.ensureSession(contractId);
+            if (session.lastAssistantMessageIndex == null) {
+                this.beginAssistant(contractId);
+            }
+            const msg = session.messages[session.lastAssistantMessageIndex];
+            const text = typeof delta === 'string' ? delta : '';
+            msg.content += text;
+            if (isLast) {
+                session.lastAssistantMessageIndex = null;
+            }
+        },
         setStatus(contractId, status) {
             const session = this.ensureSession(contractId);
             session.status = status;
@@ -80,6 +92,31 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
         setAnalysisResult(contractId, analysisResult) {
             const session = this.ensureSession(contractId);
             session.analysisResult = analysisResult;
+        },
+        async loadHistory(contractId) {
+            const session = this.ensureSession(contractId);
+            session.error = null;
+            session.lastAssistantMessageIndex = null;
+            try {
+                const response = await contractService.getChatHistory(contractId);
+                const items = Array.isArray(response?.data) ? response.data : [];
+                session.messages = items.map((item) => ({
+                    role: item?.role || 'assistant',
+                    content: item?.content || '',
+                    ts: item?.createdAt ? new Date(item.createdAt).getTime() : Date.now(),
+                }));
+            } catch (err) {
+                session.messages = session.messages || [];
+            }
+        },
+        async loadAnalysisResult(contractId) {
+            const session = this.ensureSession(contractId);
+            try {
+                const response = await contractService.getAnalysisResult(contractId);
+                session.analysisResult = response?.data || null;
+            } catch (err) {
+                session.analysisResult = session.analysisResult || null;
+            }
         },
         async startInitial(contractId, { signal } = {}) {
             const session = this.ensureSession(contractId);
@@ -97,7 +134,11 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
                     this.setStatus(contractId, payload);
                 },
                 onAnswer: (payload) => {
-                    this.appendAssistantChunk(contractId, payload?.chunk, payload?.isLast);
+                    if (payload?.delta != null) {
+                        this.appendAssistantDelta(contractId, payload?.delta, payload?.isLast);
+                    } else {
+                        this.appendAssistantChunk(contractId, payload?.chunk, payload?.isLast);
+                    }
                 },
                 onDone: (payload) => {
                     this.setAnalysisResult(contractId, payload?.analysisResult || null);
@@ -129,7 +170,11 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
                     this.setStatus(contractId, payload);
                 },
                 onAnswer: (payload) => {
-                    this.appendAssistantChunk(contractId, payload?.chunk, payload?.isLast);
+                    if (payload?.delta != null) {
+                        this.appendAssistantDelta(contractId, payload?.delta, payload?.isLast);
+                    } else {
+                        this.appendAssistantChunk(contractId, payload?.chunk, payload?.isLast);
+                    }
                 },
                 onDone: (payload) => {
                     if (payload?.analysisResult) {
