@@ -1,6 +1,6 @@
 # ContractLens 开发进度
 
-最后更新：2026-04-28
+最后更新：2026-05-01
 
 ***
 
@@ -11,7 +11,7 @@
 | 认证与权限（JWT）           | ✅ 已完成 | 登录/注册/鉴权、401/403 统一响应、CORS                                                 |
 | 合同管理                 | ✅ 已完成 | 上传/列表/删除（硬删除）/按 ID 获取                                                      |
 | 合同分析（结构化）            | ✅ 已完成 | 生成结构化风险结果并落库                                                               |
-| 合同分析（对话式流式 SSE）      | ✅ 已完成 | status/answer/done/error 事件、追问、多轮会话（落库 + 历史回显）                            |
+| 合同分析（对话式流式 SSE）      | ✅ 已完成 | status/answer/done/error 事件、追问、多轮会话（落库 + 历史回显）                             |
 | 知识库（RAG）             | ✅ 已完成 | 默认 LightRAG（服务化接入）；可切换 legacy（Chroma + Neo4j）；以 `contractlens.rag.mode` 控制 |
 | 前端工作台                | ✅ 已完成 | 控制台、对话区、摘要区、合同列表、删除与动态统计                                                   |
 | 历史/设置/知识库页面          | ✅ 已完成 | 可导航、可用、支持查看/触发 rebuild                                                     |
@@ -42,9 +42,9 @@
   - 结果过期判定：合同内容写入 `content_hash`，分析结果写入 `contract_content_hash`；`/result` 返回 `stale` 标记并懒计算旧合同 hash
   - SSE 可靠性：SSE 增加可配置超时与 keep-alive（`ping` 事件），统一取消回调并在取消/断连时安静收口
   - 可观测性：SSE status/done 下发耗时字段（elapsedMs/phaseElapsedMs/totalElapsedMs/phaseDurationsMs）；LightRAG `/query` 记录 latencyMs 并在 `/api/knowledge/status` 返回
-  - AI 输出容错：支持 fenced JSON（`json ... ` ）清洗后再解析，减少 JsonParseException
+  - AI 输出容错：支持 fenced JSON（`json ... `  ）清洗后再解析，减少 JsonParseException
   - 结构化结果稳定性：提高模型 max-tokens 默认值（2048→4096）并加入动态降级重试（正常→精简→最小 3 条），降低 JSON 截断导致的解析 EOF
-  - 风险条目强约束：party_*_risks 必须为对象数组；risk_type 禁止占位词且需短标签化；risk_level 必须为 高/中/低；不合格结构化结果触发重试/报错，首轮答案不再输出“未分类风险（待确认）”占位标题
+  - 风险条目强约束：party\_\*\_risks 必须为对象数组；risk\_type 禁止占位词且需短标签化；risk\_level 必须为 高/中/低；不合格结构化结果触发重试/报错，首轮答案不再输出“未分类风险（待确认）”占位标题
   - 风险两类与排序：风险列表同时覆盖【现有条款】与【缺失项】两类风险，并在文本答案中以单列表按优先级混排输出（标题标记【现有】/【缺失】）；条数超限时仅输出优先级最高的前几条
   - MySQL JSON 列映射：`analysis_results` 的 JSON 字段使用 Hibernate JSON 类型绑定，避免 binary charset 写入失败
 - **知识库模块（RAG）**
@@ -81,6 +81,8 @@
   - 历史记录页：合同列表 + 一键进入对话分析
   - 设置页：展示认证状态与知识库状态 + 重建向量库按钮
   - 知识库页：展示 status + 文档列表（不展示正文）
+
+<br />
 
 ***
 
@@ -168,6 +170,12 @@
 - `src/style.css`：设计令牌与全局样式
 
 ***
+
+## 工程化清理（Repo Hygiene）
+
+- 补齐 `.gitignore`：忽略 Python 缓存/pytest 产物、LightRAG 响应缓存等非源码文件，避免污染仓库
+- 清理无关一次性脚本与根目录临时 Node 产物（中期汇报 PPT 生成脚本及其依赖文件）
+- 清理不可移植默认配置：LightRAG `inputs-dir` 默认值改为相对路径 `./lightrag/inputs`
 
 ## 已知限制
 

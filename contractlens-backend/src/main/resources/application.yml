@@ -82,5 +82,5 @@ contractlens:
     query-path: ${LIGHTRAG_QUERY_PATH:/query}
     query-mode: ${LIGHTRAG_QUERY_MODE:hybrid}
     only-need-context: ${LIGHTRAG_ONLY_NEED_CONTEXT:true}
-    inputs-dir: ${LIGHTRAG_INPUTS_DIR:E:\code\repository\ContractLens\lightrag\inputs}
+    inputs-dir: ${LIGHTRAG_INPUTS_DIR:../lightrag/inputs}
     clear-inputs-on-rebuild: ${LIGHTRAG_CLEAR_INPUTS_ON_REBUILD:false}

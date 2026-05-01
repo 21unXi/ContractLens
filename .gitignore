@@ -21,6 +21,7 @@ chroma/*.sqlite3
 # LightRAG 本地索引/元数据
 .contractlens_rebuild.json
 .contractlens_write_probe
+**/kv_store_llm_response_cache.json
 
 # IDE
 .idea/
@@ -32,6 +33,12 @@ chroma/*.sqlite3
 # 日志
 logs/
 *.log
+
+# Python 缓存/测试产物
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+contractlens-pytests/reports/
 
 # 上传文件（开发阶段）
 uploads/
