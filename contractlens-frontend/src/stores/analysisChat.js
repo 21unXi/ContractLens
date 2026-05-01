@@ -3,11 +3,42 @@ import { contractService } from '../api/contract';
 
 const DEFAULT_INITIAL_PROMPT = '请对这份租房合同做一次完整风险分析。';
 
+const timers = new Map();
+
 export const useAnalysisChatStore = defineStore('analysisChat', {
     state: () => ({
         sessions: {},
     }),
     actions: {
+        startTimer(contractId) {
+            const key = String(contractId);
+            const session = this.ensureSession(contractId);
+            const existing = timers.get(key);
+            if (existing) clearInterval(existing);
+
+            session.startedAtMs = Date.now();
+            session.elapsedMs = 0;
+
+            const id = setInterval(() => {
+                const current = this.sessions?.[key];
+                if (!current) return;
+                if (!current.streaming || current.startedAtMs == null) return;
+                current.elapsedMs = Date.now() - current.startedAtMs;
+            }, 1000);
+
+            timers.set(key, id);
+        },
+        stopTimer(contractId) {
+            const key = String(contractId);
+            const id = timers.get(key);
+            if (id) clearInterval(id);
+            timers.delete(key);
+
+            const session = this.sessions?.[key];
+            if (session?.startedAtMs != null) {
+                session.elapsedMs = Date.now() - session.startedAtMs;
+            }
+        },
         ensureSession(contractId) {
             const key = String(contractId);
             if (!this.sessions[key]) {
@@ -19,12 +50,15 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
                     error: null,
                     analysisResult: null,
                     lastAssistantMessageIndex: null,
+                    startedAtMs: null,
+                    elapsedMs: null,
                 };
             }
             return this.sessions[key];
         },
         resetSession(contractId) {
             const key = String(contractId);
+            this.stopTimer(contractId);
             this.sessions[key] = {
                 contractId,
                 messages: [],
@@ -33,6 +67,8 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
                 error: null,
                 analysisResult: null,
                 lastAssistantMessageIndex: null,
+                startedAtMs: null,
+                elapsedMs: null,
             };
             return this.sessions[key];
         },
@@ -88,6 +124,9 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
         setStreaming(contractId, streaming) {
             const session = this.ensureSession(contractId);
             session.streaming = streaming;
+            if (!streaming) {
+                this.stopTimer(contractId);
+            }
         },
         setAnalysisResult(contractId, analysisResult) {
             const session = this.ensureSession(contractId);
@@ -124,6 +163,7 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
             session.streaming = true;
             session.status = null;
             session.lastAssistantMessageIndex = null;
+            this.startTimer(contractId);
             if (session.messages.length === 0) {
                 this.appendUser(contractId, DEFAULT_INITIAL_PROMPT);
             }
@@ -161,6 +201,7 @@ export const useAnalysisChatStore = defineStore('analysisChat', {
             session.streaming = true;
             session.status = null;
             session.lastAssistantMessageIndex = null;
+            this.startTimer(contractId);
 
             this.appendUser(contractId, text);
 

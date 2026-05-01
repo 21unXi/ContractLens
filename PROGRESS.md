@@ -1,6 +1,6 @@
 # ContractLens 开发进度
 
-最后更新：2026-04-26
+最后更新：2026-04-28
 
 ***
 
@@ -43,6 +43,9 @@
   - SSE 可靠性：SSE 增加可配置超时与 keep-alive（`ping` 事件），统一取消回调并在取消/断连时安静收口
   - 可观测性：SSE status/done 下发耗时字段（elapsedMs/phaseElapsedMs/totalElapsedMs/phaseDurationsMs）；LightRAG `/query` 记录 latencyMs 并在 `/api/knowledge/status` 返回
   - AI 输出容错：支持 fenced JSON（`json ... ` ）清洗后再解析，减少 JsonParseException
+  - 结构化结果稳定性：提高模型 max-tokens 默认值（2048→4096）并加入动态降级重试（正常→精简→最小 3 条），降低 JSON 截断导致的解析 EOF
+  - 风险条目强约束：party_*_risks 必须为对象数组；risk_type 禁止占位词且需短标签化；risk_level 必须为 高/中/低；不合格结构化结果触发重试/报错，首轮答案不再输出“未分类风险（待确认）”占位标题
+  - 风险两类与排序：风险列表同时覆盖【现有条款】与【缺失项】两类风险，并在文本答案中以单列表按优先级混排输出（标题标记【现有】/【缺失】）；条数超限时仅输出优先级最高的前几条
   - MySQL JSON 列映射：`analysis_results` 的 JSON 字段使用 Hibernate JSON 类型绑定，避免 binary charset 写入失败
 - **知识库模块（RAG）**
   - 文档源：MySQL `knowledge_docs`
@@ -69,8 +72,10 @@
   - 对话模式可隐藏左侧合同列表，给对话留出更多空间
   - 动态统计：知识库文档数从 `/api/knowledge/status` 获取（不再硬编码）
   - SSE 稳定性：兼容 CRLF 分隔；收到 done/error 后主动结束读取，避免连接未关闭导致“分析中”卡住
-  - 可观测性：对话区 status 文案展示耗时；知识库页/设置页展示 LightRAG 探测延迟（ms）
+  - 可观测性：对话区展示实时运行时间（mm:ss）与状态文案；知识库页/设置页展示 LightRAG 探测延迟（ms）
   - 过期提示：摘要区在 `stale=true` 时提示“可能已过期，建议重新分析”
+  - 报告化摘要：风险总览卡片补齐 Top 风险与优先建议
+  - 条款可读性：风险条款列表默认按风险高到低排序，支持按风险等级/关键词筛选并高亮命中内容
   - 项目清理：移除未使用的前端 API 封装与无效字段引用；收敛调试输出
 - **页面补齐**
   - 历史记录页：合同列表 + 一键进入对话分析

@@ -115,9 +115,9 @@
 
             <div v-if="selectedContractId" class="analysis-content">
               <div v-if="analysisMode === 'chat'" class="chat-panel">
-                <div v-if="chatStreaming && chatStatus" class="chat-status">
-                  {{ chatStatus.message }}
-                  <span v-if="chatStatus?.elapsedMs != null">（{{ chatStatus.elapsedMs }}ms）</span>
+                <div v-if="chatStreaming" class="chat-status">
+                  {{ chatPhaseText }}
+                  <span v-if="chatElapsedText"> · {{ chatElapsedText }}</span>
                 </div>
                 <div v-if="chatError" class="status-banner status-error">
                   {{ chatError.message || '分析失败' }}
@@ -147,12 +147,45 @@
                 <div v-if="analysisResult?.stale" class="status-banner status-warning">
                   该摘要可能已过期，建议重新分析
                 </div>
-                <AnalysisSummary :summary="analysisResult" />
+                <AnalysisSummary :summary="analysisResult" :risks="allRisks" :suggestions="analysisResult.suggestions" />
 
                 <div class="clause-list fade-in">
-                  <h4 class="view-title">{{ currentView === 'tenant' ? '租客' : '房东' }}视角风险详情</h4>
-                  <div v-if="currentRisks.length > 0">
-                    <ClauseCard v-for="(risk, index) in currentRisks" :key="index" :risk="risk" />
+                  <div class="clause-toolbar">
+                    <div class="toolbar-title">
+                      <h4 class="view-title">{{ currentView === 'tenant' ? '租客' : '房东' }}视角风险详情</h4>
+                      <span v-if="currentRisks.length" class="toolbar-count">{{ filteredRisks.length }}/{{ currentRisks.length }}</span>
+                    </div>
+                    <div class="toolbar-controls">
+                      <div class="filter-row">
+                        <span class="filter-label">风险</span>
+                        <button class="filter-chip" :class="{ active: riskLevelFilter === 'all' }" @click="riskLevelFilter = 'all'">全部</button>
+                        <button class="filter-chip" :class="{ active: riskLevelFilter === '高' }" @click="riskLevelFilter = '高'">高</button>
+                        <button class="filter-chip" :class="{ active: riskLevelFilter === '中' }" @click="riskLevelFilter = '中'">中</button>
+                        <button class="filter-chip" :class="{ active: riskLevelFilter === '低' }" @click="riskLevelFilter = '低'">低</button>
+                      </div>
+                      <div class="filter-row">
+                        <span class="filter-label">关键词</span>
+                        <button
+                          v-for="kw in keywordOptions"
+                          :key="kw"
+                          class="filter-chip"
+                          :class="{ active: selectedKeywords.includes(kw) }"
+                          @click="toggleKeyword(kw)"
+                        >
+                          {{ kw }}
+                        </button>
+                        <button v-if="selectedKeywords.length" class="filter-chip clear" @click="clearKeywords">清空</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="filteredRisks.length > 0">
+                    <ClauseCard
+                      v-for="(risk, index) in filteredRisks"
+                      :key="index"
+                      :risk="risk"
+                      :highlightKeywords="selectedKeywords"
+                    />
                   </div>
                   <div v-else class="empty-analysis">
                     <p>未发现该视角下的显著风险</p>
@@ -216,12 +249,81 @@ const chatMessages = computed(() => chatSession.value?.messages || []);
 const chatStatus = computed(() => chatSession.value?.status || null);
 const chatStreaming = computed(() => chatSession.value?.streaming || false);
 const chatError = computed(() => chatSession.value?.error || null);
+const chatElapsedMs = computed(() => chatSession.value?.elapsedMs ?? null);
+
+const formatElapsed = (ms) => {
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value < 0) return '';
+  const totalSeconds = Math.floor(value / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
+};
+
+const chatPhaseText = computed(() => {
+  const message = String(chatStatus.value?.message || '').trim();
+  return message || '分析中';
+});
+
+const chatElapsedText = computed(() => {
+  if (!chatStreaming.value) return '';
+  if (chatElapsedMs.value == null) return '';
+  return formatElapsed(chatElapsedMs.value);
+});
 
 const currentRisks = computed(() => {
   if (!analysisResult.value) return [];
   return currentView.value === 'tenant' 
     ? analysisResult.value.party_tenant_risks || []
     : analysisResult.value.party_lessor_risks || [];
+});
+
+const allRisks = computed(() => {
+  if (!analysisResult.value) return [];
+  const tenant = Array.isArray(analysisResult.value.party_tenant_risks) ? analysisResult.value.party_tenant_risks : [];
+  const lessor = Array.isArray(analysisResult.value.party_lessor_risks) ? analysisResult.value.party_lessor_risks : [];
+  return [...tenant, ...lessor];
+});
+
+const riskLevelFilter = ref('all');
+const keywordOptions = ['押金', '违约', '维修', '转租', '退租'];
+const selectedKeywords = ref([]);
+
+const toggleKeyword = (kw) => {
+  const list = selectedKeywords.value.slice();
+  const idx = list.indexOf(kw);
+  if (idx >= 0) list.splice(idx, 1);
+  else list.push(kw);
+  selectedKeywords.value = list;
+};
+
+const clearKeywords = () => {
+  selectedKeywords.value = [];
+};
+
+const riskScoreOf = (level) => {
+  if (level === '高') return 3;
+  if (level === '中') return 2;
+  if (level === '低') return 1;
+  return 0;
+};
+
+const matchesKeywords = (risk, keywords) => {
+  if (!keywords?.length) return true;
+  const clause = String(risk?.clause_text || '');
+  const desc = String(risk?.risk_description || '');
+  const text = `${clause}\n${desc}`;
+  return keywords.some((kw) => text.includes(kw));
+};
+
+const filteredRisks = computed(() => {
+  const list = Array.isArray(currentRisks.value) ? currentRisks.value.slice() : [];
+  const keywords = selectedKeywords.value;
+  const filtered = list
+    .filter((risk) => (riskLevelFilter.value === 'all' ? true : risk?.risk_level === riskLevelFilter.value))
+    .filter((risk) => matchesKeywords(risk, keywords));
+  filtered.sort((a, b) => riskScoreOf(b?.risk_level) - riskScoreOf(a?.risk_level));
+  return filtered;
 });
 
 const isAnalyzing = (contractId) => {
@@ -724,6 +826,66 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.clause-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.toolbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.toolbar-count {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.toolbar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-right: 0.25rem;
+}
+
+.filter-chip {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  background: #eef2ff;
+  border-color: rgba(79, 70, 229, 0.28);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.filter-chip.clear {
+  background: #f3f4f6;
 }
 
 .empty-analysis-state {

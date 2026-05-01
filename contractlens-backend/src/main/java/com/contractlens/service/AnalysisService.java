@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.langchain4j.retriever.Retriever;
 import dev.langchain4j.data.segment.TextSegment;
 import jakarta.annotation.PreDestroy;
@@ -150,6 +151,12 @@ public class AnalysisService {
                                 sendStatusTimed(emitter, contractId, "retrying_analysis", "结构化结果解析失败，正在重试生成更精简的结果", sessionStartNs, phaseStartNs);
                             } catch (IOException ignored) {
                             }
+                        },
+                        () -> {
+                            try {
+                                sendStatusTimed(emitter, contractId, "retrying_analysis_minimal", "仍无法解析，正在降级生成最小可解析结果", sessionStartNs, phaseStartNs);
+                            } catch (IOException ignored) {
+                            }
                         }
                 );
                 String answer = buildInitialAnswer(latestResult);
@@ -265,15 +272,15 @@ public class AnalysisService {
 
     private String toUserFacingError(Throwable ex) {
         if (ex instanceof JsonProcessingException) {
-            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试一次，仍失败。请点击“重试”或稍后再试。";
+            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试并降级生成更精简/最小结果，仍失败。请点击“重试”或稍后再试。";
         }
         Throwable cause = ex != null ? ex.getCause() : null;
         if (cause instanceof JsonProcessingException) {
-            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试一次，仍失败。请点击“重试”或稍后再试。";
+            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试并降级生成更精简/最小结果，仍失败。请点击“重试”或稍后再试。";
         }
         String message = ex != null ? ex.getMessage() : null;
         if (message != null && (message.contains("Unexpected end-of-input") || message.contains("JsonParseException"))) {
-            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试生成更精简/最小结果，仍失败。请点击“重试”或稍后再试。";
+            return "结构化结果解析失败（可能是模型输出被截断）。已自动重试并降级生成更精简/最小结果，仍失败。请点击“重试”或稍后再试。";
         }
         if (message != null && message.toLowerCase().contains("timeout")) {
             return "模型调用超时。请稍后重试，或在设置中提高超时时间/缩短输出规模。";
@@ -360,14 +367,15 @@ public class AnalysisService {
     }
 
     private AnalysisResult generateAndSaveStructuredResult(Contract contract, String retrievedContext, String graphContext) throws IOException {
-        return generateAndSaveStructuredResultWithRetry(contract, retrievedContext, graphContext, null);
+        return generateAndSaveStructuredResultWithRetry(contract, retrievedContext, graphContext, null, null);
     }
 
     private AnalysisResult generateAndSaveStructuredResultWithRetry(
             Contract contract,
             String retrievedContext,
             String graphContext,
-            Runnable onRetryConcise
+            Runnable onRetryConcise,
+            Runnable onRetryMinimal
     ) throws IOException {
         String initialRetrievedContext = truncateText(retrievedContext, 6000);
         String initialGraphContext = truncateText(graphContext, 3000);
@@ -382,8 +390,19 @@ public class AnalysisService {
             String retryRetrievedContext = truncateText(initialRetrievedContext, 3000);
             String retryGraphContext = truncateText(initialGraphContext, 1000);
             String retryJson = analyst.analyzeContractConcise(contract.getContent(), retryRetrievedContext, retryGraphContext);
-            AnalysisResult result = mapJsonToAnalysisResult(contract, retryRetrievedContext, retryGraphContext, retryJson);
-            return analysisResultRepository.save(result);
+            try {
+                AnalysisResult result = mapJsonToAnalysisResult(contract, retryRetrievedContext, retryGraphContext, retryJson);
+                return analysisResultRepository.save(result);
+            } catch (JsonProcessingException second) {
+                if (onRetryMinimal != null) {
+                    onRetryMinimal.run();
+                }
+                String minimalRetrievedContext = truncateText(retryRetrievedContext, 1500);
+                String minimalGraphContext = truncateText(retryGraphContext, 500);
+                String minimalJson = analyst.analyzeContractMinimal(contract.getContent(), minimalRetrievedContext, minimalGraphContext);
+                AnalysisResult result = mapJsonToAnalysisResult(contract, minimalRetrievedContext, minimalGraphContext, minimalJson);
+                return analysisResultRepository.save(result);
+            }
         }
     }
 
@@ -410,8 +429,8 @@ public class AnalysisService {
         result.setSummary(readText(root, "summary"));
         result.setRiskLevel(normalizeRiskLevel(defaultText(readText(root, "risk_level"), "中")));
         result.setRiskScore(readInteger(root, "risk_score"));
-        result.setPartyLessorRisks(readObjectArrayJsonStrict(root, "party_lessor_risks", "[]"));
-        result.setPartyTenantRisks(readObjectArrayJsonStrict(root, "party_tenant_risks", "[]"));
+        result.setPartyLessorRisks(readRiskArrayJsonStrict(root, "party_lessor_risks", "[]"));
+        result.setPartyTenantRisks(readRiskArrayJsonStrict(root, "party_tenant_risks", "[]"));
         result.setSuggestions(sanitizeSuggestionsJson(root));
         result.setContractTags(readJson(root, "contract_tags", "[]"));
         result.setRetrievedContext(retrievedContext);
@@ -462,7 +481,7 @@ public class AnalysisService {
         StringBuilder builder = new StringBuilder();
         builder.append("整体结论：").append(defaultText(result.getSummary(), "已完成租房合同风险分析。")).append("\n\n");
         builder.append("风险评分：").append(result.getRiskScore() != null ? result.getRiskScore() : "暂无")
-                .append("；风险等级：").append(defaultText(result.getRiskLevel(), "待确认")).append("\n\n");
+                .append("；风险等级：").append(defaultText(result.getRiskLevel(), "暂无")).append("\n\n");
 
         appendRiskSection(builder, "租客视角重点风险", result.getPartyTenantRisks());
         appendRiskSection(builder, "房东视角重点风险", result.getPartyLessorRisks());
@@ -478,18 +497,47 @@ public class AnalysisService {
             return;
         }
 
-        builder.append(title).append("：\n");
+        StringBuilder section = new StringBuilder();
         int index = 1;
         for (JsonNode riskNode : riskNodes) {
-            builder.append(index++).append(". ")
-                    .append(defaultText(readText(riskNode, "risk_type"), "未分类风险"))
-                    .append("（").append(defaultText(readText(riskNode, "risk_level"), "待确认")).append("）")
+            String riskType = readText(riskNode, "risk_type");
+            String riskLevel = readText(riskNode, "risk_level");
+            if (!StringUtils.hasText(riskType) || !StringUtils.hasText(riskLevel)) {
+                continue;
+            }
+            String clauseText = defaultText(readText(riskNode, "clause_text"), "未提供");
+            boolean missing = false;
+            if (StringUtils.hasText(clauseText) && clauseText.trim().startsWith("【缺失】")) {
+                missing = true;
+            }
+            if (!missing) {
+                JsonNode idx = riskNode != null ? riskNode.path("clause_index") : null;
+                if (idx != null && !idx.isMissingNode() && !idx.isNull()) {
+                    if (idx.isNumber()) {
+                        missing = Double.compare(idx.asDouble(), 0.0d) == 0;
+                    } else if (idx.isTextual()) {
+                        try {
+                            missing = Double.compare(Double.parseDouble(idx.asText().trim()), 0.0d) == 0;
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                }
+            }
+            section.append(index++).append(". ")
+                    .append(missing ? "【缺失】" : "【现有】")
+                    .append(riskType.trim())
+                    .append("（").append(riskLevel.trim()).append("）")
                     .append("\n");
-            builder.append("条款：").append(defaultText(readText(riskNode, "clause_text"), "未提供")).append("\n");
-            builder.append("说明：").append(defaultText(readText(riskNode, "risk_description"), "未提供")).append("\n");
-            builder.append("法律依据：").append(defaultText(readText(riskNode, "legal_basis"), "未提供")).append("\n");
-            builder.append("建议：").append(defaultText(readText(riskNode, "suggestion"), "未提供")).append("\n\n");
+            section.append("条款：").append(clauseText).append("\n");
+            section.append("说明：").append(defaultText(readText(riskNode, "risk_description"), "未提供")).append("\n");
+            section.append("法律依据：").append(defaultText(readText(riskNode, "legal_basis"), "未提供")).append("\n");
+            section.append("建议：").append(defaultText(readText(riskNode, "suggestion"), "未提供")).append("\n\n");
         }
+        if (section.length() == 0) {
+            return;
+        }
+        builder.append(title).append("：\n");
+        builder.append(section);
     }
 
     private void appendSuggestionsSection(StringBuilder builder, String suggestionsJson) throws JsonProcessingException {
@@ -748,6 +796,36 @@ public class AnalysisService {
         return "中";
     }
 
+    private boolean hasMeaningfulChars(String text) {
+        if (!StringUtils.hasText(text)) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (Character.isLetterOrDigit(c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isPlaceholderRiskType(String riskType) {
+        if (!StringUtils.hasText(riskType)) {
+            return true;
+        }
+        String t = riskType.trim();
+        if (t.length() < 2 || t.length() > 20) {
+            return true;
+        }
+        if (!hasMeaningfulChars(t)) {
+            return true;
+        }
+        if (t.startsWith("未分类")) {
+            return true;
+        }
+        return "其他".equals(t) || "其它".equals(t) || "未知".equals(t) || "待确认".equals(t) || "未提供".equals(t);
+    }
+
     private String buildRetrievedContext(List<TextSegment> segments, int maxSegmentChars, int maxTotalChars) {
         if (segments == null || segments.isEmpty()) {
             return "";
@@ -777,7 +855,7 @@ public class AnalysisService {
         return builder.toString();
     }
 
-    private String readObjectArrayJsonStrict(JsonNode root, String fieldName, String defaultValue) throws JsonProcessingException {
+    private String readRiskArrayJsonStrict(JsonNode root, String fieldName, String defaultValue) throws JsonProcessingException {
         if (root == null) {
             return defaultValue;
         }
@@ -789,6 +867,7 @@ public class AnalysisService {
             throw new JsonProcessingException(fieldName + " must be an array") {
             };
         }
+        ArrayNode sanitized = objectMapper.createArrayNode();
         for (JsonNode item : value) {
             if (item == null || item.isNull() || item.isMissingNode()) {
                 continue;
@@ -797,8 +876,34 @@ public class AnalysisService {
                 throw new JsonProcessingException(fieldName + " must be an array of objects") {
                 };
             }
+            ObjectNode obj = (ObjectNode) item;
+            String riskType = readText(obj, "risk_type");
+            if (isPlaceholderRiskType(riskType)) {
+                throw new JsonProcessingException(fieldName + " risk_type must be a short non-placeholder label") {
+                };
+            }
+            String rawRiskLevel = readText(obj, "risk_level");
+            if (!StringUtils.hasText(rawRiskLevel)) {
+                throw new JsonProcessingException(fieldName + " risk_level must be non-empty") {
+                };
+            }
+            if (!rawRiskLevel.contains("高") && !rawRiskLevel.contains("中") && !rawRiskLevel.contains("低")) {
+                throw new JsonProcessingException(fieldName + " risk_level must be one of 高/中/低") {
+                };
+            }
+            String riskLevel = normalizeRiskLevel(rawRiskLevel);
+            obj.put("risk_level", riskLevel);
+
+            String clauseText = readText(obj, "clause_text");
+            String riskDescription = readText(obj, "risk_description");
+            String suggestion = readText(obj, "suggestion");
+            if (!StringUtils.hasText(clauseText) && !StringUtils.hasText(riskDescription) && !StringUtils.hasText(suggestion)) {
+                throw new JsonProcessingException(fieldName + " risk object is empty") {
+                };
+            }
+            sanitized.add(obj);
         }
-        return objectMapper.writeValueAsString(value);
+        return objectMapper.writeValueAsString(sanitized);
     }
 
     private String truncateText(String text, int maxChars) {

@@ -33,7 +33,7 @@ langchain4j:
       model-name: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
       timeout: ${DASHSCOPE_CHAT_TIMEOUT:180s}
       max-retries: ${DASHSCOPE_CHAT_MAX_RETRIES:1}
-      max-tokens: ${DASHSCOPE_CHAT_MAX_TOKENS:2048}
+      max-tokens: ${DASHSCOPE_CHAT_MAX_TOKENS:4096}
       temperature: ${DASHSCOPE_CHAT_TEMPERATURE:0.2}
       response-format: ${DASHSCOPE_CHAT_RESPONSE_FORMAT:json_object}
       strict-json-schema: ${DASHSCOPE_CHAT_STRICT_JSON_SCHEMA:false}

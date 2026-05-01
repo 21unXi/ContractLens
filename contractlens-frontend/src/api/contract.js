@@ -1,4 +1,5 @@
 import http from './http';
+import { isLikelyJwt } from './http';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -149,8 +150,10 @@ export const contractService = {
         const headers = {
             Accept: 'text/event-stream',
         };
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
+        if (isLikelyJwt(token)) {
+            headers.Authorization = `Bearer ${token.trim()}`;
+        } else if (token) {
+            localStorage.removeItem('token');
         }
 
         let body;

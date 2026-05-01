@@ -10,11 +10,11 @@
     <div class="card-content">
       <div class="content-item">
         <span class="label">条款原文</span>
-        <p class="text quote">{{ risk.clause_text }}</p>
+        <p class="text quote" v-html="clauseTextHtml"></p>
       </div>
       <div class="content-item">
         <span class="label">风险说明</span>
-        <p class="text">{{ risk.risk_description }}</p>
+        <p class="text" v-html="riskDescriptionHtml"></p>
       </div>
       <div class="content-row">
         <div class="content-item">
@@ -38,12 +38,45 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  highlightKeywords: {
+    type: Array,
+    default: () => [],
+  },
 });
+
+const escapeHtml = (value) => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const escapeRegExp = (value) => {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const highlightText = (text, keywords) => {
+  const escaped = escapeHtml(text);
+  const list = (Array.isArray(keywords) ? keywords : []).map((kw) => String(kw || '').trim()).filter(Boolean);
+  if (list.length === 0) return escaped;
+  const unique = Array.from(new Set(list)).sort((a, b) => b.length - a.length);
+  let html = escaped;
+  for (const kw of unique) {
+    const re = new RegExp(escapeRegExp(kw), 'g');
+    html = html.replace(re, `<mark class="hl">${escapeHtml(kw)}</mark>`);
+  }
+  return html;
+};
 
 const riskLevelClass = computed(() => {
   const levels = { '高': 'level-high', '中': 'level-medium', '低': 'level-low' };
   return levels[props.risk.risk_level] || '';
 });
+
+const clauseTextHtml = computed(() => highlightText(props.risk?.clause_text, props.highlightKeywords));
+const riskDescriptionHtml = computed(() => highlightText(props.risk?.risk_description, props.highlightKeywords));
 </script>
 
 <style scoped>
@@ -131,6 +164,12 @@ const riskLevelClass = computed(() => {
   border-radius: var(--radius-md);
   font-style: italic;
   color: var(--text-secondary);
+}
+
+.hl {
+  background: rgba(250, 204, 21, 0.35);
+  padding: 0 0.12em;
+  border-radius: 0.25em;
 }
 
 .basis {
