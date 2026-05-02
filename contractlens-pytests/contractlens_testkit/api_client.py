@@ -128,3 +128,18 @@ class ApiClient:
             headers=self.auth_headers(token),
             timeout=self.timeout,
         )
+
+    def knowledge_rebuild(self, token: str) -> requests.Response:
+        return requests.post(
+            f"{self.base_url}/api/knowledge/rebuild",
+            headers=self.auth_headers(token),
+            timeout=60,
+        )
+
+    def stream_analysis(self, token: str, contract_id: int, message: str | None) -> requests.Response:
+        return requests.post(
+            f"{self.base_url}/api/analysis/contracts/{contract_id}/stream",
+            headers={**self.auth_headers(token), "Accept": "text/event-stream"},
+            json={"message": message} if message is not None else None,
+            timeout=15,
+        )

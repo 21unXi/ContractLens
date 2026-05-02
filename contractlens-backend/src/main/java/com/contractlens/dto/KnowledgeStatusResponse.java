@@ -18,6 +18,7 @@ public class KnowledgeStatusResponse {
     private Integer retrieverTopK;
     private Double retrieverMinScore;
     private String retrieverProbeQuery;
+    private String retrieverProbeContextPreview;
     private String retrieverProbeError;
     private Boolean graphEnabled;
     private Long graphNodeCount;

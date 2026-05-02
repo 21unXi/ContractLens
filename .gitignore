@@ -30,6 +30,9 @@ chroma/*.sqlite3
 *.swp
 *.swo
 
+# Trae IDE
+.trae/
+
 # 日志
 logs/
 *.log
@@ -39,6 +42,12 @@ logs/
 *.py[cod]
 .pytest_cache/
 contractlens-pytests/reports/
+contractlens-pytests/.pytest_cache/
+contractlens-pytests/.venv/
+contractlens-pytests/.coverage
+contractlens-pytests/.coverage.*
+contractlens-pytests/coverage.xml
+contractlens-pytests/htmlcov/
 
 # 上传文件（开发阶段）
 uploads/

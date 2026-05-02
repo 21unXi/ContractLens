@@ -98,12 +98,22 @@ def try_probe_knowledge_status(base_url: str) -> dict | None:
         if status.status_code != 200:
             return {"status_code": status.status_code}
         data = status.json()
+        probe_query = (data.get("retrieverProbeQuery") or "").strip()
+        preview = (data.get("retrieverProbeContextPreview") or "").strip()
+        keywords = [k for k in probe_query.replace("\t", " ").split(" ") if len(k) >= 2]
+        keywords = keywords[:6]
+        hits = [k for k in keywords if k and preview and k in preview]
         return {
             "ragMode": data.get("ragMode"),
             "knowledgeDocsCount": data.get("knowledgeDocsCount"),
+            "retrieverProbeQuery": probe_query or None,
+            "retrieverProbeContextPreviewHead": (preview[:120] if preview else None),
+            "retrieverProbeKeywordHits": hits,
             "retrieverProbeReturnedSegments": data.get("retrieverProbeReturnedSegments"),
             "lightRagProbeReturnedChunks": data.get("lightRagProbeReturnedChunks"),
+            "lightRagProbeContextChars": data.get("lightRagProbeContextChars"),
             "lightRagProbeLatencyMs": data.get("lightRagProbeLatencyMs"),
+            "lightRagOk": data.get("lightRagOk"),
         }
     except requests.RequestException:
         return None

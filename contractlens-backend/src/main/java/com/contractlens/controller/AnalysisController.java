@@ -9,6 +9,7 @@ import com.contractlens.repository.AnalysisResultRepository;
 import com.contractlens.repository.ContractRepository;
 import com.contractlens.service.AnalysisChatSessionService;
 import com.contractlens.service.AnalysisService;
+import com.contractlens.service.security.PromptSafetyService;
 import com.contractlens.util.ContentHashUtil;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class AnalysisController {
     @Autowired
     private AnalysisResultRepository analysisResultRepository;
 
+    @Autowired
+    private PromptSafetyService promptSafetyService;
+
     @PostMapping("/contracts/{contractId}")
     public ResponseEntity<AnalysisResult> analyzeContract(@PathVariable Long contractId, Authentication authentication) throws IOException {
         AnalysisResult result = analysisService.analyzeContract(contractId, authentication.getName());
@@ -50,6 +54,7 @@ public class AnalysisController {
             Authentication authentication
     ) {
         String message = request != null ? request.getMessage() : null;
+        promptSafetyService.checkOrThrow(message);
         return analysisService.streamContractAnalysis(contractId, authentication.getName(), message);
     }
 

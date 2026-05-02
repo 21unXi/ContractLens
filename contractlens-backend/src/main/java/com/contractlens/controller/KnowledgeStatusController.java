@@ -79,6 +79,7 @@ public class KnowledgeStatusController {
         long count = knowledgeDocRepository.count();
         Integer hitCount = null;
         Integer returnedSegments = null;
+        String contextPreview = null;
         String probeError = null;
         Long graphNodeCount = null;
         Long graphEdgeCount = null;
@@ -100,8 +101,11 @@ public class KnowledgeStatusController {
             if (result.ok()) {
                 lightRagOk = true;
                 lightRagProbeReturnedChunks = result.retrievedChunkCount();
-                lightRagProbeContextChars = result.context() != null ? result.context().length() : 0;
-                returnedSegments = lightRagProbeReturnedChunks;
+                String ctx = result.context();
+                lightRagProbeContextChars = ctx != null ? ctx.length() : 0;
+                returnedSegments = lightRagProbeReturnedChunks != null ? lightRagProbeReturnedChunks : 0;
+                String raw = result.raw();
+                contextPreview = preview(StringUtils.hasText(ctx) ? ctx : raw, 200);
             } else {
                 lightRagOk = false;
                 lightRagProbeError = result.error();
@@ -109,9 +113,11 @@ public class KnowledgeStatusController {
             }
         } else {
             try {
-                int size = retriever.findRelevant(probeQuery).size();
+                List<TextSegment> segments = retriever.findRelevant(probeQuery);
+                int size = segments != null ? segments.size() : 0;
                 hitCount = size;
                 returnedSegments = size;
+                contextPreview = previewSegments(segments, 2, 200);
             } catch (Exception ex) {
                 probeError = ex.getMessage();
             }
@@ -176,6 +182,7 @@ public class KnowledgeStatusController {
                 .retrieverTopK(retrieverTopK)
                 .retrieverMinScore(retrieverMinScore)
                 .retrieverProbeQuery(blankToNull(probeQuery))
+                .retrieverProbeContextPreview(blankToNull(contextPreview))
                 .retrieverProbeError(blankToNull(probeError))
                 .graphEnabled(ragProperties.getMode() == RagMode.LIGHTRAG ? null : graphEnabled)
                 .graphNodeCount(graphNodeCount)
@@ -198,6 +205,28 @@ public class KnowledgeStatusController {
                 .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    private static String previewSegments(List<TextSegment> segments, int maxSegments, int maxChars) {
+        if (segments == null || segments.isEmpty()) return null;
+        int limit = Math.min(Math.max(maxSegments, 1), segments.size());
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < limit; i++) {
+            TextSegment seg = segments.get(i);
+            String t = seg == null ? null : seg.text();
+            if (!StringUtils.hasText(t)) continue;
+            if (sb.length() > 0) sb.append("\n---\n");
+            sb.append(t);
+            if (sb.length() >= maxChars) break;
+        }
+        return preview(sb.toString(), maxChars);
+    }
+
+    private static String preview(String text, int maxChars) {
+        if (!StringUtils.hasText(text)) return null;
+        String normalized = text.replace("\r", "").trim();
+        if (normalized.length() <= maxChars) return normalized;
+        return normalized.substring(0, Math.max(maxChars - 1, 0)) + "…";
     }
 
     private static String blankToNull(String value) {

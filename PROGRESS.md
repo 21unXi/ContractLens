@@ -1,6 +1,6 @@
 # ContractLens 开发进度
 
-最后更新：2026-05-01
+最后更新：2026-05-02
 
 ***
 
@@ -36,6 +36,7 @@
 - **分析模块**
   - 结构化分析：`POST /api/analysis/contracts/{contractId}`（生成 JSON → 解析 → 写入 `analysis_results`）
   - 流式对话分析（SSE）：`POST /api/analysis/contracts/{contractId}/stream`（事件：status/answer/done/error）
+  - 安全防护：对追问 message 中“索要系统提示/密钥/配置等敏感信息”的请求做服务端硬拒绝（400），避免提示词注入/越狱
   - 追问真流式：追问阶段 `answer` 事件支持 `delta/seq` 增量输出（初次分析仍为分段 chunk）
   - 会话持久化：聊天消息落库（每合同最多 20 条），新增历史接口 `GET /api/analysis/contracts/{contractId}/chat/history`
   - 分析结果读取：新增 `GET /api/analysis/contracts/{contractId}/result`，用于刷新/从历史进入时回显已有结构化摘要（不触发重算）
@@ -53,6 +54,7 @@
   - 状态：`GET /api/knowledge/status`
     - legacy：文档数、向量库配置、向量/图谱探测返回条数、图谱节点/关系数、错误信息
     - lightrag：显示 ragMode、LightRAG 服务与探测结果（returnedChunks / contextChars / error）
+    - 检索评估支持：增加 retrieverProbeContextPreview（<=200 字符）用于做最小化“相关性/质量”评估（自定义指标）
   - 列表：`GET /api/knowledge/docs`（分页返回 docId/title/docType/createdAt）
   - rebuild：`POST /api/knowledge/rebuild`
     - legacy：将 `knowledge_docs` ingest 到向量库；Neo4j 图谱 upsert 失败时自动降级但会记录失败原因
@@ -176,6 +178,10 @@
 - 补齐 `.gitignore`：忽略 Python 缓存/pytest 产物、LightRAG 响应缓存等非源码文件，避免污染仓库
 - 清理无关一次性脚本与根目录临时 Node 产物（中期汇报 PPT 生成脚本及其依赖文件）
 - 清理不可移植默认配置：LightRAG `inputs-dir` 默认值改为相对路径 `./lightrag/inputs`
+- 新增 pytest 测试工程：覆盖工具/集成/检索/安全（含越狱拒绝与 RAG probe 评估），并提供 Markdown + JUnit 报告输出
+- 补全 MySQL 初始化脚本：database/init.sql 增加外键与约束，表结构与实体字段长度对齐
+- 更新 README：补充 LightRAG 安装/配置/启动说明与本地联调要点
+- 更新 .gitignore：忽略 Trae IDE 目录与 contractlens-pytests 测试产物（reports/coverage/.venv 等）
 
 ## 已知限制
 
