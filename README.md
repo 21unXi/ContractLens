@@ -123,6 +123,7 @@ LIGHTRAG_QUERY_PATH=/query
 启动 LightRAG Server（示例）：
 
 ```bash
+cd lightrag
 lightrag-server --host 0.0.0.0 --port 9621
 ```
 
@@ -177,4 +178,3 @@ ContractLens/
 ```
 
 ##
-
