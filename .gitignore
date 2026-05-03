@@ -2,6 +2,7 @@
 application-local.yml
 application-*.yml
 !application-dev.example.yml
+!application-dev_example.yml
 
 # 后端
 contractlens-backend/target/

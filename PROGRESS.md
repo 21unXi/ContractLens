@@ -28,6 +28,7 @@
   - JWT 过滤与鉴权：除 `/api/auth/**` 外均需登录
   - 统一 401/403 JSON 响应；放行 ASYNC/ERROR dispatcher type，降低 SSE 场景 “response already committed” 连锁异常
   - 配置安全：`application.yml` 不包含明文 API Key/密码；默认启用 dev profile 并从 `application-dev.yml` 读取密钥（该文件不入库）；启动时校验关键配置缺失并失败早
+  - 新增示例配置：提供 `application-dev_example.yml`，用于提交到仓库供他人参考
 - **合同模块**
   - 上传：`POST /api/contracts/upload`（支持 txt/docx/pdf，解析后入库，文件落盘到 `upload.path`）
   - 列表：`GET /api/contracts`（仅当前用户）

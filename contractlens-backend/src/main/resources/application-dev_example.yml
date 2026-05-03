@@ -1,0 +1,10 @@
+contractlens:
+  dev:
+    datasource:
+      password: your_mysql_password
+    jwt:
+      secret: your_jwt_secret
+    dashscope:
+      api-key: real-api-key
+    neo4j:
+      password: your_neo4j_password
